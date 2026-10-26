@@ -152,7 +152,9 @@ function compute() {
   frags -= S.game.trades.length * FRAG_PER_BOX;
   // 1 box de bienvenue + 1 par niveau gagné + défis réussis + badges + échanges de fragments
   const boxesEarned = lvl.level + challengeBoxes + badgeBoxes + S.game.trades.length;
-  const boxes = Math.max(0, boxesEarned - pulls.length);
+  // Une box ouverte = un booster (les anciennes box d'une seule carte comptent pour une)
+  const opened = new Set(pulls.map(p => p.b || p.id)).size;
+  const boxes = Math.max(0, boxesEarned - opened);
 
   // Compagnon : grandit avec l'XP des jours où il est actif, redescend après 2 jours « sans » d'affilée
   const forms = new Set(Object.keys(owned).map(l => LINES[l] ? LINES[l].base : l));

@@ -1,5 +1,6 @@
 // Toutes les cartes du jeu : séries, familles (lignes d'évolution) et formes.
-import { PK_NAMES, PK_EVO, PK_LINES } from './pokemon-data.js';
+import { PK_NAMES, PK_EVO, PK_LINES, PK_TCG } from './pokemon-data.js';
+import { ANIME } from './anime-data.js';
 
 export const SERIES = {
   pokemon: { name: 'Pokémon', short: 'Pokémon', color: '#f5b700', emoji: '⚡' },
@@ -18,12 +19,15 @@ export const FORMS = {};
 export const LINES = {};
 
 const pkImg = n => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${n}.png`;
+const pkCard = n => { const c = PK_TCG[n] || ''; return c.startsWith('1:') ? 'https://images.pokemontcg.io/' + c.slice(2) : c.startsWith('2:') ? 'https://images.scrydex.com/pokemon/' + c.slice(2) : c; };
+// Version grand format d'une carte (ouverture de box, fiche)
+export const bigCard = u => u.replace(/(images\.pokemontcg\.io\/.+)\.png$/, '$1_hires.png').replace(/\/small$/, '/large');
 for (const [base, rarity] of PK_LINES) {
   const id = 'pk' + base, forms = [];
   let depth = 0;
   const walk = (n, d) => {
     const fid = 'pk' + n;
-    FORMS[fid] = { id: fid, name: PK_NAMES[n], series: 'pokemon', img: pkImg(n), next: (PK_EVO[n] || []).map(x => 'pk' + x), line: id, depth: d, num: n };
+    FORMS[fid] = { id: fid, name: PK_NAMES[n], series: 'pokemon', img: pkImg(n), card: pkCard(n), next: (PK_EVO[n] || []).map(x => 'pk' + x), line: id, depth: d, num: n };
     forms.push(fid);
     depth = Math.max(depth, d);
     for (const c of PK_EVO[n] || []) walk(c, d + 1);
@@ -38,7 +42,7 @@ export function addSeries(key, info, lines) {
   for (const l of lines) {
     const id = l.forms[0].id;
     l.forms.forEach((f, i) => {
-      FORMS[f.id] = { id: f.id, name: f.name, series: key, img: f.img || '', next: f.next || (l.forms[i + 1] ? [l.forms[i + 1].id] : []), line: id, depth: f.depth ?? i, saga: f.saga || '' };
+      FORMS[f.id] = { id: f.id, name: f.name, series: key, img: f.img || '', small: !!f.small, next: f.next || (l.forms[i + 1] ? [l.forms[i + 1].id] : []), line: id, depth: f.depth ?? i, saga: f.saga || '' };
     });
     LINES[id] = { id, series: key, rarity: l.rarity, base: id, forms: l.forms.map(f => f.id), depth: Math.max(...l.forms.map((f, i) => f.depth ?? i)) };
   }
@@ -46,3 +50,5 @@ export function addSeries(key, info, lines) {
 
 export const linesByRarity = r => Object.values(LINES).filter(l => l.rarity === r);
 export const allForms = () => Object.values(FORMS);
+
+for (const s of ANIME) addSeries(s.key, s.info, s.lines);

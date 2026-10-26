@@ -1,5 +1,5 @@
 // Écran « Jeu » : niveau, box, compagnon, défis, jokers, récompenses, collection et badges.
-import { S, save, touch, upsert, remove, newId } from '../store.js';
+import { S, save, touch, newId } from '../store.js';
 import { G, badgeDefs, compThreshold, FRAG_PER_BOX, JOKER_MAX, CHALLENGE_XP } from '../game/rules.js';
 import { LINES, FORMS, SERIES, RARITY } from '../game/roster.js';
 import { cardHTML, tradeFragments, setCompanion } from '../game/gacha.js';
@@ -13,7 +13,7 @@ export function levelCard(compact = false) {
   const g = G(), c = g.companion;
   const pct = Math.round(g.lvl.into / g.lvl.need * 100);
   return `<section class="lv-card ${compact ? 'compact' : ''}" ${compact ? 'data-act="tab" data-tab="game"' : ''}>
-    <div class="lv-avatar">${c ? `<img src="${esc(c.form.img)}" alt="" referrerpolicy="no-referrer">` : '<span>🎁</span>'}</div>
+    <div class="lv-avatar">${c ? `<img src="${esc(c.form.img)}" alt="" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">` : '<span>🎁</span>'}</div>
     <div class="lv-main">
       <div class="lv-top"><span class="lv-num">Niv. ${g.lvl.level}</span><span class="lv-title">${esc(g.title)}</span></div>
       <div class="xpbar"><span style="width:${pct}%"></span></div>
@@ -43,13 +43,13 @@ function companionCard() {
   const chain = [];
   for (let i = 0; i <= L.depth; i++) {
     const id = c.path[i];
-    if (id) chain.push(`<span class="ch-step on ${i === c.stage ? 'cur' : ''}"><img src="${esc(FORMS[id].img)}" alt="" referrerpolicy="no-referrer"></span>`);
+    if (id) chain.push(`<span class="ch-step on ${i === c.stage ? 'cur' : ''}"><img src="${esc(FORMS[id].img)}" alt="" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'"></span>`);
     else chain.push('<span class="ch-step">?</span>');
   }
   const nextNames = c.maxed ? '' : FORMS[c.form.id].next.map(id => g.forms.has(id) ? FORMS[id].name : '???').join(' ou ');
   const warn = c.badStreak >= 1 ? `<p class="comp-warn">⚠️ Hier était un jour sans (pas de révision, moins de 7 h de sommeil, rien en alimentation). Encore un aujourd’hui et ${esc(c.form.name)} ${c.stage ? 'redescend d’un stade' : 'perd sa progression'}.</p>` : '';
   return `<section class="card comp-card" style="--rc:${RARITY[L.rarity].color}">
-    <div class="comp-art"><img src="${esc(c.form.img)}" alt="" referrerpolicy="no-referrer"></div>
+    <div class="comp-art"><img src="${esc(c.form.img)}" alt="" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'"></div>
     <div class="comp-body">
       <p class="eyebrow">🐾 Ton compagnon · ${'★'.repeat(L.rarity)}</p>
       <h2>${esc(c.form.name)}</h2>
@@ -152,7 +152,7 @@ export function sheet(s) {
       <p class="eyebrow">${SERIES[f.series].emoji} ${esc(SERIES[f.series].name)} · ${'★'.repeat(L.rarity)} ${RARITY[L.rarity].name}</p>
       <h2>${known ? esc(f.name) : '???'}</h2>
       ${own ? `<p class="muted">Obtenue ${own.count > 1 ? `${own.count} fois` : '1 fois'}</p>` : '<p class="muted">Pas encore obtenue : elle peut sortir d’une box.</p>'}
-      ${L.forms.length > 1 ? `<p class="eyebrow" style="margin-top:12px">Famille</p><div class="fam">${L.forms.map(id => `<button class="fam-item ${g.forms.has(id) ? '' : 'unknown'} ${id === f.id ? 'cur' : ''}" data-act="cardOpen" data-id="${id}"><img src="${esc(FORMS[id].img)}" alt="" loading="lazy" referrerpolicy="no-referrer"><small>${g.forms.has(id) ? esc(FORMS[id].name) : '???'}</small></button>`).join('')}</div>
+      ${L.forms.length > 1 ? `<p class="eyebrow" style="margin-top:12px">Famille</p><div class="fam">${L.forms.map(id => `<button class="fam-item ${g.forms.has(id) ? '' : 'unknown'} ${id === f.id ? 'cur' : ''}" data-act="cardOpen" data-id="${id}"><img src="${esc(FORMS[id].img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'"><small>${g.forms.has(id) ? esc(FORMS[id].name) : '???'}</small></button>`).join('')}</div>
         <p class="muted small">On obtient toujours le premier stade. Les évolutions se débloquent en faisant grandir le compagnon (${nf(compThreshold(L.id))} XP par stade).</p>` : ''}
       ${own ? (isComp ? '<p class="tag-ok">🐾 C’est ton compagnon</p>' : `<button class="btn primary" data-act="compSet" data-line="${L.id}">🐾 Choisir comme compagnon</button>`) : ''}
     </div></div>`;
