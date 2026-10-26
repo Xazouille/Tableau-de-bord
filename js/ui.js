@@ -1,8 +1,9 @@
 // État de l'interface (onglet ouvert, fenêtre ouverte…) et petits composants partagés.
 import { todayKey, esc } from './util.js';
 
-const pref = k => { try { return localStorage.getItem('tdb2-' + k); } catch (e) { return null; } };
-export const setPref = (k, v) => { try { localStorage.setItem('tdb2-' + k, v); } catch (e) {} };
+const PFX = (() => { try { return localStorage.getItem('tdb2-demo') === '1' ? 'tdb2-demo-' : 'tdb2-'; } catch (e) { return 'tdb2-'; } })();
+export const pref = k => { try { return localStorage.getItem(PFX + k); } catch (e) { return null; } };
+export const setPref = (k, v) => { try { localStorage.setItem(PFX + k, v); } catch (e) {} };
 
 export const ui = {
   tab: pref('tab') || 'today',

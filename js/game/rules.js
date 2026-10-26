@@ -158,6 +158,7 @@ function compute() {
 
   // Compagnon : grandit avec l'XP des jours où il est actif, redescend après 2 jours « sans » d'affilée
   const forms = new Set(Object.keys(owned).map(l => LINES[l] ? LINES[l].base : l));
+  if (S.game.unlockAll) for (const id of Object.keys(FORMS)) forms.add(id);
   const comp = [...S.game.comp].filter(c => owned[c.line] && LINES[c.line]).sort((a, b) => a.from < b.from ? -1 : a.from > b.from ? 1 : a.t - b.t);
   const lineState = {};
   let bad = 0, regressions = 0, evolutions = 0;

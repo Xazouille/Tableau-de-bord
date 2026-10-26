@@ -1,7 +1,8 @@
 // Point d'entrée : affichage des écrans, navigation et gestion des clics / saisies.
 import morphdom from './vendor/morphdom.js';
-import { S, onChange, storageOK, sync, syncNow, save, touch } from './store.js';
-import { ui, setRender, setPref, closeSheet, ico, toast } from './ui.js';
+import { S, onChange, storageOK, sync, syncNow, save, touch, DEMO, setDemo, replaceAll, leaving } from './store.js';
+import { ui, setRender, setPref, pref, closeSheet, ico, toast } from './ui.js';
+import { makeDemo } from './demo.js';
 import { G, awardBadges } from './game/rules.js';
 import { showLevelUp, overlayOpen } from './game/opening.js';
 import { todayKey, dayDiff } from './util.js';
@@ -24,6 +25,8 @@ const actions = Object.assign({}, ...MODULES.map(m => m.actions || {}), {
     scrollTo({ top: 0 });
   },
   closeSheet() { closeSheet(); },
+  demoOn() { if (confirm('Ouvrir le compte de démonstration ? Tes vraies données restent de côté, intactes.')) setDemo(true); },
+  demoOff() { setDemo(false); },
 });
 const forms = Object.assign({}, ...MODULES.map(m => m.forms || {}));
 const inputs = Object.assign({}, ...MODULES.map(m => m.inputs || {}));
@@ -40,6 +43,7 @@ const MORPH = {
 
 let lastSheet = null, lastDay = todayKey();
 function render() {
+  if (leaving) return;
   // Nouveau jour depuis la dernière ouverture : on revient sur aujourd'hui
   const tk = todayKey();
   if (tk !== lastDay) { if (ui.day === lastDay || dayDiff(ui.day, tk) > 2) ui.day = tk; lastDay = tk; }
@@ -53,8 +57,9 @@ function render() {
   });
 
   const view = VIEWS[ui.tab] || today;
+  const demo = DEMO ? '<button class="demo-bar" data-act="demoOff">🧪 Mode démo : tout est débloqué · <b>Quitter la démo</b></button>' : '';
   const warn = storageOK ? '' : '<div class="card warn">Ce navigateur bloque l’enregistrement (navigation privée ?). Tes données seront perdues à la fermeture.</div>';
-  morphdom(app, `<main id="app" class="view-${ui.tab}">${warn}${view.render()}</main>`, MORPH);
+  morphdom(app, `<main id="app" class="view-${ui.tab}">${demo}${warn}${view.render()}</main>`, MORPH);
 
   if (ui.sheet !== lastSheet) {
     lastSheet = ui.sheet;
@@ -93,7 +98,7 @@ function checkProgress() {
     }
     if (changed) { touch(S.game); save(); }
     if (!overlayOpen() && !ui.sheet) {
-      const lv = G().lvl.level, seen = Number(localStorage.getItem('tdb2-seenLevel') || 0);
+      const lv = G().lvl.level, seen = Number(pref('seenLevel') || 0);
       if (!seen) setPref('seenLevel', lv);
       else if (lv > seen) { setPref('seenLevel', lv); showLevelUp(lv, G().title, lv - seen); }
     }
@@ -139,6 +144,7 @@ document.addEventListener('visibilitychange', () => {
   if (sync && sync.on) syncNow();
 });
 
+if (DEMO && !S.game.pulls.length) replaceAll(makeDemo());
 render();
 if (sync && sync.on) syncNow();
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});

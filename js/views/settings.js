@@ -1,5 +1,5 @@
 // Écrans « Plus » (sur téléphone) et « Réglages » : profil, domaines, synchro, sauvegarde.
-import { S, save, touch, sync, enableSync, disableSync, syncNow, replaceAll, resetAll, COLORS } from '../store.js';
+import { S, save, touch, sync, enableSync, disableSync, syncNow, replaceAll, resetAll, COLORS, DEMO } from '../store.js';
 import { ui, ico, toast, openSheet, closeSheet } from '../ui.js';
 import { esc, todayKey, uid, fmtShort } from '../util.js';
 import { TIME_MEASURE } from '../measures.js';
@@ -20,6 +20,7 @@ const ago = ts => {
 };
 
 function syncCard() {
+  if (DEMO) return '<section class="card"><h2>🔄 Synchro PC ↔ téléphone</h2><p class="muted">Désactivée en mode démo : rien n’est envoyé sur GitHub.</p></section>';
   if (sync && sync.on) {
     return `<section class="card"><h2>🔄 Synchro PC ↔ téléphone</h2>
       <p class="muted">${sync.err ? `<span class="late">${esc(sync.err)}</span>` : `✓ Active avec <b>${esc(sync.repo)}</b> · dernière synchro ${sync.last ? ago(sync.last) : 'en cours…'}`}</p>
@@ -80,6 +81,8 @@ export function render() {
     <section class="card"><h2>💾 Sauvegarde</h2>
       <p class="muted">${sync && sync.on ? 'Avec la synchro, tout est déjà sauvegardé dans ton dépôt GitHub. Tu peux aussi exporter un fichier.' : 'Sans synchro, tout est enregistré dans ce navigateur, sur cet appareil uniquement. Exporte une sauvegarde de temps en temps.'}</p>
       <div class="row"><button class="btn" data-act="exportData">Exporter</button><button class="btn" data-act="importData">Importer</button></div></section>
+    ${DEMO ? '' : `<section class="card"><h2>🧪 Mode démo</h2><p class="muted">Découvre l’appli avec un compte déjà bien avancé : 4 mois d’historique, toutes les cartes et évolutions débloquées, des box à ouvrir. Tes vraies données restent de côté et ne sont pas touchées.</p>
+      <div class="row"><button class="btn" data-act="demoOn">Lancer la démo</button></div></section>`}
     <section class="card"><h2>🧨 Repartir de zéro</h2><p class="muted">Efface toutes les cases, objectifs, médiathèque, vision et progression du jeu.</p>
       <div class="row"><button class="btn danger" data-act="resetData">Tout effacer</button></div></section>
     </div></div>`;

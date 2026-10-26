@@ -684,3 +684,5 @@ form[data-type=list] .if-list{display:block}
 .overlay .cg-top{color:rgba(255,255,255,.7)}
 .overlay .cg-name small{color:rgba(255,255,255,.65)}
 .tcg-img.art{object-fit:contain;padding:14% 8%;background:radial-gradient(circle at 50% 40%,color-mix(in oklab,var(--rc) 30%,var(--card)),var(--card) 70%)}
+.demo-bar{display:block;width:100%;border:0;cursor:pointer;margin:6px 0 4px;padding:9px 14px;border-radius:14px;font-weight:700;font-size:13.5px;color:#fff;
+  background:repeating-linear-gradient(135deg,#7c3aed 0 14px,#6d28d9 14px 28px)}

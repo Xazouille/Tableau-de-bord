@@ -3,7 +3,18 @@
 import { todayKey, uid } from './util.js';
 import { PRESETS, DEFAULT_XP } from './measures.js';
 
-const KEY = 'tdb2-data';
+// Mode démo : un compte de démonstration rangé à part (les vraies données ne sont pas touchées)
+export const DEMO = (() => { try { return localStorage.getItem('tdb2-demo') === '1'; } catch (e) { return false; } })();
+export let leaving = false;   // l'appli se recharge : plus rien ne doit être enregistré
+export function setDemo(on) {
+  leaving = true;
+  try {
+    if (on) localStorage.setItem('tdb2-demo', '1');
+    else Object.keys(localStorage).filter(k => k === 'tdb2-demo' || k.startsWith('tdb2-demo-')).forEach(k => localStorage.removeItem(k));
+  } catch (e) {}
+  location.reload();
+}
+const KEY = DEMO ? 'tdb2-demo-data' : 'tdb2-data';
 const SYNC_KEY = 'tdb2-sync', OLD_SYNC_KEY = 'tdb-sync', SYNC_FILE = 'tableau-de-bord-v2.json';
 
 export const COLORS = ['#4f8cff', '#9b6bff', '#ff5a5f', '#f5b700', '#ff8a3d', '#22c55e', '#14c8c8', '#6c7bff', '#ff4fa3', '#00b3ff', '#e879f9', '#84cc16'];
@@ -85,6 +96,7 @@ function persist() {
 }
 // Enregistre une modification : sur l'appareil, puis en ligne si la synchro est active
 export function save() {
+  if (leaving) return;
   S.meta.modified = Date.now();
   persist();
   schedulePush();
@@ -170,6 +182,7 @@ function mergeGame(a, b, dead) {
 /* ---------- Synchro PC ↔ téléphone (dépôt GitHub privé) ---------- */
 // Réglages propres à chaque appareil : jamais exportés ni synchronisés
 export let sync = (() => {
+  if (DEMO) return null;
   try {
     const s = JSON.parse(localStorage.getItem(SYNC_KEY));
     if (s) return s;
@@ -180,7 +193,7 @@ export let sync = (() => {
   return null;
 })();
 let pushTimer = null, syncing = false, syncAgain = false;
-const saveSync = () => { try { if (sync) localStorage.setItem(SYNC_KEY, JSON.stringify(sync)); else localStorage.removeItem(SYNC_KEY); } catch (e) {} };
+const saveSync = () => { if (DEMO) return; try { if (sync) localStorage.setItem(SYNC_KEY, JSON.stringify(sync)); else localStorage.removeItem(SYNC_KEY); } catch (e) {} };
 const b64enc = s => { const b = new TextEncoder().encode(s); let bin = ''; for (let i = 0; i < b.length; i += 0x8000) bin += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(bin); };
 const b64dec = s => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s/g, '')), ch => ch.charCodeAt(0)));
 const ghFetch = (path, opts = {}) => fetch(`https://api.github.com/repos/${sync.repo}${path}`, Object.assign({ cache: 'no-store' }, opts, {
@@ -197,6 +210,7 @@ function schedulePush() {
   pushTimer = setTimeout(syncNow, 2500);
 }
 export function enableSync(repo, token) {
+  if (DEMO) return Promise.resolve();
   sync = { repo, token, on: true };
   saveSync();
   return syncNow();
@@ -204,7 +218,7 @@ export function enableSync(repo, token) {
 export function disableSync() { sync = null; saveSync(); emit(); }
 
 export async function syncNow(attempt = 0) {
-  if (!sync || !sync.on) return;
+  if (DEMO || !sync || !sync.on) return;
   if (syncing) { syncAgain = true; return; }
   if (!navigator.onLine) { sync.err = 'Hors ligne : la synchro reprendra au retour d’internet.'; saveSync(); return; }
   clearTimeout(pushTimer);
