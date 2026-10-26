@@ -2,6 +2,7 @@
 import { S, save, touch, sync, enableSync, disableSync, syncNow, replaceAll, resetAll, COLORS } from '../store.js';
 import { ui, ico, toast, openSheet, closeSheet } from '../ui.js';
 import { esc, todayKey, uid, fmtShort } from '../util.js';
+import { TIME_MEASURE } from '../measures.js';
 
 export function renderMore() {
   const item = (tab, emoji, title, sub, c) => `<button class="hub" style="--c:${c}" data-act="tab" data-tab="${tab}"><span class="hub-emoji">${emoji}</span><span><b>${title}</b><small>${sub}</small></span>${ico('chev')}</button>`;
@@ -44,7 +45,7 @@ function syncCard() {
 
 function domainsCard() {
   const list = S.domains.list, act = list.filter(d => !d.archived), arch = list.filter(d => d.archived);
-  const row = (d, i) => `<div class="dom-row" style="--c:${d.color}"><span class="dom-emoji">${d.emoji}</span><span class="dom-name">${esc(d.name)}<small>${esc(d.hint || '')}</small></span>
+  const row = (d, i) => `<div class="dom-row" style="--c:${d.color}"><span class="dom-emoji">${d.emoji}</span><span class="dom-name">${esc(d.name)}<small>${d.xp} XP · ${esc(d.hint || '')}</small></span>
     ${d.archived ? `<button class="btn sm" data-act="domRestore" data-id="${d.id}">Remettre</button>` : `
     <button class="icon-btn" data-act="domMove" data-id="${d.id}" data-d="-1" ${i === 0 ? 'disabled' : ''} aria-label="Monter">${ico('up')}</button>
     <button class="icon-btn" data-act="domMove" data-id="${d.id}" data-d="1" ${i === act.length - 1 ? 'disabled' : ''} aria-label="Descendre">${ico('down')}</button>
@@ -87,13 +88,20 @@ export function render() {
 const EMOJI_IDEAS = ['🎓', '♟️', '🏃', '💰', '📚', '🥗', '🧘', '😴', '📵', '🙅', '💧', '🎸', '🗣️', '🧹', '🙏', '✍️', '🎨', '💻', '🚭', '🌳'];
 export function sheet(s) {
   const d = s.id ? S.domains.list.find(x => x.id === s.id) : null;
-  const v = d || { name: '', emoji: '⭐', hint: '', color: COLORS[S.domains.list.length % COLORS.length] };
-  return `<form class="form" data-form="domain">
+  const v = d || { name: '', emoji: '⭐', hint: '', color: COLORS[S.domains.list.length % COLORS.length], xp: 15, m: { kind: 'none' } };
+  const m = v.m || { kind: 'none' };
+  const custom = m.kind === 'levels' && JSON.stringify(m.opts) !== JSON.stringify(TIME_MEASURE.opts);
+  const kind = custom ? 'keep' : m.kind === 'levels' ? 'time' : m.kind;
+  const kinds = [...(custom ? [['keep', `Réglage actuel : ${m.opts.map(o => o[0]).join(' / ')}`]] : []), ['none', 'Juste une case'], ['time', 'Temps passé (15 min → 2 h et +)'], ['list', 'Liste d’objectifs à cocher'], ['money', 'Montant en €']];
+  return `<form class="form" data-form="domain" data-type="${kind}">
     <h2>${d ? 'Modifier le domaine' : 'Nouveau domaine'}</h2>
     <div class="grid2 emoji-name"><label class="f">Emoji<input name="emoji" class="emoji-in" maxlength="8" value="${esc(v.emoji)}" required></label>
       <label class="f">Nom<input name="name" maxlength="30" required value="${esc(v.name)}" placeholder="Ex. Boire 2 L d’eau"></label></div>
     <div class="emoji-ideas">${EMOJI_IDEAS.map(e => `<button type="button" data-act="pickEmoji" data-e="${e}">${e}</button>`).join('')}</div>
     <label class="f">Petite phrase <small>(facultatif)</small><input name="hint" maxlength="50" value="${esc(v.hint)}" placeholder="Ce qui compte comme « fait »"></label>
+    <div class="grid2"><label class="f">XP de base<input type="number" name="xp" min="0" max="500" inputmode="numeric" value="${esc(v.xp)}"></label>
+      <label class="f">En cochant, je précise…<select name="mkind" data-input="domKind">${kinds.map(([id, l]) => `<option value="${id}" ${kind === id ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label></div>
+    <label class="f if-list">Objectifs <small>(un par ligne)</small><textarea name="items" rows="4">${esc(m.kind === 'list' ? m.items.join('\n') : '')}</textarea></label>
     <div class="f"><span>Couleur</span><div class="colors">${COLORS.map(c => `<label style="--c:${c}"><input type="radio" name="color" value="${c}" ${v.color === c ? 'checked' : ''}><span></span></label>`).join('')}</div></div>
     <div class="row"><button class="btn primary">${d ? 'Enregistrer' : 'Ajouter'}</button>
       ${d ? `<button type="button" class="btn danger ghost" data-act="domArchive" data-id="${d.id}">Masquer ce domaine</button>` : ''}</div>
@@ -157,14 +165,20 @@ export const actions = {
   },
 };
 export const inputs = {
+  domKind(el) { el.form.dataset.type = el.value; },
   name(el) { S.profile.name = el.value.trim(); touch(S.profile); save(); },
   threshold(el) { S.settings.threshold = Number(el.value) / 100; touch(S.settings); save(); },
 };
 export const forms = {
   domain(f) {
     const d = ui.sheet.id ? dom(ui.sheet.id) : null;
-    const v = { name: (f.name || '').trim(), emoji: (f.emoji || '⭐').trim(), hint: (f.hint || '').trim(), color: f.color || COLORS[0] };
+    const v = { name: (f.name || '').trim(), emoji: (f.emoji || '⭐').trim(), hint: (f.hint || '').trim(), color: f.color || COLORS[0], xp: Math.max(0, Math.round(Number(f.xp) || 0)) };
     if (!v.name) return false;
+    const items = (f.items || '').split('\n').map(s => s.trim()).filter(Boolean);
+    if (f.mkind === 'list' && !items.length) { toast('Ajoute au moins un objectif à la liste'); return false; }
+    if (f.mkind !== 'keep') v.m = f.mkind === 'time' ? { ...TIME_MEASURE, q: `Combien de temps pour « ${v.name} » ?` }
+      : f.mkind === 'list' ? { kind: 'list', q: 'Qu’as-tu réussi aujourd’hui ?', items }
+      : f.mkind === 'money' ? { kind: 'money', q: 'Total de tous mes comptes' } : { kind: 'none' };
     if (d) Object.assign(d, v);
     else S.domains.list.splice(S.domains.list.filter(x => !x.archived).length, 0, { id: uid(), archived: false, ...v });
     ui.sheet = null; domSave(); toast(d ? 'Domaine modifié' : `${v.emoji} ${v.name} ajouté`);

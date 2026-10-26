@@ -3,16 +3,12 @@ import { S, save, upsert, remove, newId, COLORS } from '../store.js';
 import { ui, ico, toast, openSheet, closeSheet, empty } from '../ui.js';
 import { esc, todayKey, dayDiff, parseKey, fmtDate, plural } from '../util.js';
 import { confetti, buzz } from '../fx.js';
+import { goalProgress as progress, goalXP, STEP_XP } from '../game/rules.js';
 
 export const HORIZONS = [['annee', 'Cette année'], ['trimestre', 'Ce trimestre'], ['mois', 'Ce mois-ci'], ['semaine', 'Cette semaine'], ['libre', 'Sans échéance']];
 const TYPES = [['count', '🔢 Chiffré', 'Atteindre un nombre : 20 livres, 300 km…'], ['steps', '🪜 À étapes', 'Une liste d’étapes à valider'], ['simple', '✅ Simple', 'Fait ou pas fait']];
 const EMOJIS = ['🎯', '📚', '🏃', '💰', '🎓', '♟️', '🧘', '💪', '🚀', '🏆', '✈️', '🍎', '💼', '🎸', '🧠', '❤️'];
 
-export function progress(g) {
-  if (g.type === 'count') return g.target > 0 ? Math.min(1, (g.value || 0) / g.target) : 0;
-  if (g.type === 'steps') return g.steps && g.steps.length ? g.steps.filter(s => s.done).length / g.steps.length : 0;
-  return g.done ? 1 : 0;
-}
 const colorOf = g => COLORS[[...g.id].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length];
 
 // Met à jour l'état « atteint » et fête la réussite
@@ -21,7 +17,7 @@ function settle(g) {
   if (g.type !== 'simple') g.done = p >= 1;
   if (g.done && !was) {
     g.doneAt = todayKey();
-    setTimeout(() => { confetti(); buzz([30, 60, 30]); toast(`🏆 Objectif atteint : ${g.title}`); }, 150);
+    setTimeout(() => { confetti(); buzz([30, 60, 30]); toast(`🏆 Objectif atteint : ${g.title} · +${goalXP(g)} XP`); }, 150);
   }
   if (!g.done) g.doneAt = '';
   upsert('goals', g); save();
@@ -55,6 +51,7 @@ function goalCard(g, child = false) {
       <div class="g-title"><h3>${esc(g.title)}</h3><span class="g-meta">${[child ? '' : horizon, dueLabel(g), g.done ? '🏆 atteint' : ''].filter(Boolean).join(' · ')}</span></div>
       <button class="icon-btn" data-act="goalEdit" data-id="${g.id}" aria-label="Modifier">${ico('edit')}</button></div>
     <div class="g-prog"><div class="g-bar"><span style="width:${pct}%"></span></div><b>${pct} %</b></div>
+    <p class="g-xp">${g.done ? '✓' : '🎁'} ${goalXP(g)} XP${g.type === 'steps' ? ` · +${STEP_XP} XP par étape` : ''}</p>
     ${body}
     ${kids.length ? `<div class="g-kids"><p class="eyebrow">Sous-objectifs</p>${kids.map(k => goalCard(k, true)).join('')}</div>` : ''}
   </article>`;
@@ -112,7 +109,7 @@ export const actions = {
   goalStep(el) { const g = find(el.dataset.id), s = g.steps.find(x => x.id === el.dataset.s); s.done = !s.done; buzz(8); settle(g); },
   goalSimple(el) {
     const g = find(el.dataset.id); g.done = !g.done;
-    if (g.done) { g.doneAt = todayKey(); confetti(); buzz([30, 60, 30]); toast(`🏆 Objectif atteint : ${g.title}`); } else g.doneAt = '';
+    if (g.done) { g.doneAt = todayKey(); confetti(); buzz([30, 60, 30]); toast(`🏆 Objectif atteint : ${g.title} · +${goalXP(g)} XP`); } else g.doneAt = '';
     upsert('goals', g); save();
   },
   goalDelete(el) {

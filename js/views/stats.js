@@ -2,6 +2,8 @@
 import { S, activeDomains, isDone } from '../store.js';
 import { dayCount, isPerfect, isJoker, globalStreak, globalBest, domainStreak, domainBest, domainRate, periodScore, weekScore, monthScore, totalChecks } from '../stats.js';
 import { ui, empty } from '../ui.js';
+import { G } from '../game/rules.js';
+import { fmtMoney } from '../measures.js';
 import { key, today, addDays, weekStart, parseKey, fmtLong, fmtShort, esc, MONTHS_SHORT, plural, todayKey } from '../util.js';
 
 function statTile(label, value, sub, cls = '') {
@@ -71,6 +73,56 @@ function domainsCard() {
   return `<section class="card"><div class="c-head"><h2>Par domaine</h2><span class="muted small">🔥 série · 🏆 record</span></div>${rows}</section>`;
 }
 
+// Courbe du total des comptes (une seule série : pas de légende, le titre la nomme)
+function moneyChart() {
+  const pts = G().money;
+  if (!pts.length) return '';
+  const last = pts[pts.length - 1][1], first = pts[0][1];
+  const ago = key(addDays(today(), -30)), before = pts.filter(([k]) => k <= ago).pop();
+  const d30 = before ? last - before[1] : null;
+  const sign = n => (n > 0 ? '+' : '') + fmtMoney(n);
+  if (pts.length < 2) {
+    return `<section class="card"><div class="c-head"><h2>💰 Mon argent</h2></div><div class="money-now">${fmtMoney(last)}</div><p class="muted small">La courbe apparaîtra dès ton deuxième point.</p></section>`;
+  }
+  const W = 600, H = 170, t0 = parseKey(pts[0][0]).getTime(), t1 = parseKey(pts[pts.length - 1][0]).getTime() || t0 + 1;
+  let lo = Math.min(...pts.map(p => p[1])), hi = Math.max(...pts.map(p => p[1]));
+  const pad = (hi - lo) * 0.12 || Math.abs(hi) * 0.1 || 10;
+  lo -= pad; hi += pad;
+  const X = k => ((parseKey(k).getTime() - t0) / ((t1 - t0) || 1)) * W, Y = v => H - ((v - lo) / (hi - lo)) * H;
+  const line = pts.map(([k, v], i) => `${i ? 'L' : 'M'}${X(k).toFixed(1)},${Y(v).toFixed(1)}`).join('');
+  const area = `${line}L${W},${H}L0,${H}Z`;
+  const data = esc(JSON.stringify(pts.map(([k, v]) => [X(k) / W, Y(v) / H, fmtShort(parseKey(k)), fmtMoney(v)])));
+  return `<section class="card"><div class="c-head"><h2>💰 Mon argent</h2><span class="muted small">total de mes comptes</span></div>
+    <div class="money-row"><div class="money-now">${fmtMoney(last)}</div>
+      ${d30 != null ? `<span class="m-delta ${d30 >= 0 ? 'up' : 'down'}">${d30 >= 0 ? '▲' : '▼'} ${sign(d30)} en 30 jours</span>` : ''}
+      <span class="muted small">Depuis le début : ${sign(last - first)}</span></div>
+    <div class="mchart" data-pts="${data}">
+      <span class="mc-y top">${fmtMoney(Math.round(hi))}</span><span class="mc-y bot">${fmtMoney(Math.round(lo))}</span>
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--ok)" stop-opacity=".28"/><stop offset="1" stop-color="var(--ok)" stop-opacity="0"/></linearGradient></defs>
+        <path d="${area}" fill="url(#mg)"/><path d="${line}" fill="none" stroke="var(--ok)" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/></svg>
+      <i class="mc-dot"></i><i class="mc-cross"></i><div class="mc-tip"></div>
+    </div>
+    <div class="mc-x"><span>${fmtShort(parseKey(pts[0][0]))}</span><span>${fmtShort(parseKey(pts[pts.length - 1][0]))}</span></div>
+  </section>`;
+}
+// Survol de la courbe : point le plus proche + infobulle
+export function chartHover(e) {
+  const c = e.target.closest && e.target.closest('.mchart');
+  document.querySelectorAll('.mchart.hover').forEach(x => { if (x !== c) x.classList.remove('hover'); });
+  if (!c || e.type === 'pointerleave') return;
+  const pts = JSON.parse(c.dataset.pts), r = c.getBoundingClientRect();
+  const fx = (e.clientX - r.left) / r.width;
+  let best = pts[0];
+  for (const p of pts) if (Math.abs(p[0] - fx) < Math.abs(best[0] - fx)) best = p;
+  const x = best[0] * r.width, y = best[1] * r.height;
+  c.classList.add('hover');
+  c.querySelector('.mc-dot').style.cssText = `left:${x}px;top:${y}px`;
+  c.querySelector('.mc-cross').style.left = x + 'px';
+  const tip = c.querySelector('.mc-tip');
+  tip.innerHTML = `<b>${best[3]}</b><span>${best[2]}</span>`;
+  tip.style.left = Math.min(Math.max(x, 60), r.width - 60) + 'px';
+}
+
 function journal() {
   const notes = Object.entries(S.days).filter(([, d]) => d.note && d.note.trim()).sort((a, b) => a[0] < b[0] ? 1 : -1);
   const shown = notes.slice(0, ui.journalAll ? 365 : 8);
@@ -94,6 +146,7 @@ export function render() {
     </div>
     <p class="muted small center">Une journée compte pour la série si au moins ${Math.round((S.settings.threshold || 0.5) * 100)} % des cases sont cochées.</p>
     ${heatmap()}
+    ${moneyChart()}
     <div class="two stats-two">${weeksChart()}${domainsCard()}${journal()}</div>`;
 }
 

@@ -18,7 +18,7 @@ function streakOf(test) {
   while (test(key(d))) { n++; d = addDays(d, -1); }
   return { n, today: alive };
 }
-function bestOf(test) {
+export function bestOf(test) {
   const keys = Object.keys(S.days).sort();
   if (!keys.length) return 0;
   let best = 0, cur = 0;

@@ -98,7 +98,7 @@ export const forms = {
     upsert('media', m);
     ui.sheet = null; ui.mediaStatus = m.status;
     save();
-    if (finished) { confetti(70); toast(`${MTYPES[m.type].emoji} « ${m.title} » ajouté aux terminés`); }
+    if (finished) { confetti(70); toast(`${MTYPES[m.type].emoji} « ${m.title} » terminé · +50 XP`); }
     else toast(old ? 'Modifié' : 'Ajouté ✓');
   },
 };

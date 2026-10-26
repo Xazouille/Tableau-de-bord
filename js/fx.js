@@ -58,3 +58,16 @@ export function burst(el, color) {
   start();
 }
 export const buzz = (p = 12) => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+
+// Texte qui s'envole au-dessus d'un élément (« +15 XP »)
+export function floatText(el, text) {
+  if (!el) return;
+  const r = el.getBoundingClientRect();
+  const t = document.createElement('div');
+  t.className = 'float-xp';
+  t.textContent = text;
+  t.style.left = r.left + r.width / 2 + 'px';
+  t.style.top = r.top + 10 + 'px';
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 1200);
+}

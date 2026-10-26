@@ -1,6 +1,7 @@
 // Données de l'appli : valeurs par défaut, enregistrement sur l'appareil,
 // fusion entre deux appareils et synchro via un dépôt GitHub privé.
 import { todayKey, uid } from './util.js';
+import { PRESETS, DEFAULT_XP } from './measures.js';
 
 const KEY = 'tdb2-data';
 const SYNC_KEY = 'tdb2-sync', OLD_SYNC_KEY = 'tdb-sync', SYNC_FILE = 'tableau-de-bord-v2.json';
@@ -18,7 +19,7 @@ const DEFAULT_DOMAINS = [
   ['sommeil', 'Sommeil', '😴', '#6c7bff', 'Une vraie nuit de sommeil'],
   ['ecran', 'Écran < 2h', '📵', '#ff4fa3', 'Moins de 2 h sur le téléphone'],
   ['scroll', 'Pas de scroll', '🙅', '#00b3ff', 'Zéro réseau en scroll infini'],
-].map(([id, name, emoji, color, hint]) => ({ id, name, emoji, color, hint, archived: false }));
+].map(([id, name, emoji, color, hint]) => ({ id, name, emoji, color, hint, archived: false, xp: DEFAULT_XP[id], m: PRESETS[id] }));
 
 const DEFAULT_VISION = [
   { id: 'devenir', title: 'Qui je veux devenir', text: '' },
@@ -36,7 +37,7 @@ export function defaults() {
     goals: [],
     media: [],
     vision: { blocks: DEFAULT_VISION.map(b => ({ ...b })), u: 0 },
-    game: { u: 0 },
+    game: { pulls: [], trades: [], visits: {}, badges: {}, jokerDays: {}, comp: [], rewards: [], u: 0 },
     dead: {},
   };
 }
@@ -50,6 +51,14 @@ function normalize(d) {
   for (const k of ['goals', 'media']) if (!Array.isArray(o[k])) o[k] = [];
   if (!Array.isArray(o.domains.list)) o.domains.list = defaults().domains.list;
   if (!Array.isArray(o.vision.blocks)) o.vision.blocks = defaults().vision.blocks;
+  // Domaines d'une version sans XP ni détail : on reprend les réglages par défaut
+  for (const d of o.domains.list) {
+    if (d.xp == null) d.xp = DEFAULT_XP[d.id] ?? 15;
+    if (!d.m) d.m = PRESETS[d.id] || { kind: 'none' };
+  }
+  const g = o.game;
+  for (const k of ['pulls', 'trades', 'comp', 'rewards']) if (!Array.isArray(g[k])) g[k] = [];
+  for (const k of ['visits', 'badges', 'jokerDays']) if (!g[k] || typeof g[k] !== 'object' || Array.isArray(g[k])) g[k] = {};
   return o;
 }
 
@@ -94,6 +103,14 @@ export function setDone(k, id, val) {
   if (val) day.c[id] = 1; else delete day.c[id];
   S.days[k] = touch(day);
 }
+// Détail de ce qui a été fait (temps, liste, montant…)
+export const valOf = (k, id) => S.days[k] && S.days[k].x ? S.days[k].x[id] : undefined;
+export function setVal(k, id, v) {
+  const day = S.days[k] || { c: {}, note: '' };
+  day.x = day.x || {};
+  if (v == null) delete day.x[id]; else day.x[id] = v;
+  S.days[k] = touch(day);
+}
 export function setNote(k, note) {
   const day = S.days[k] || { c: {}, note: '' };
   day.note = note;
@@ -124,7 +141,7 @@ export function merge(a, b) {
   m.dead = { ...a.dead };
   for (const [id, t] of Object.entries(b.dead)) m.dead[id] = Math.max(m.dead[id] || 0, t);
   for (const k of ['profile', 'settings', 'domains', 'vision']) m[k] = newer(a[k], b[k]);
-  m.game = mergeGame(a.game, b.game);
+  m.game = mergeGame(a.game, b.game, m.dead);
   m.days = { ...a.days };
   for (const [k, d] of Object.entries(b.days)) m.days[k] = newer(m.days[k], d);
   for (const list of ['goals', 'media']) {
@@ -135,9 +152,20 @@ export function merge(a, b) {
   m.meta = { modified: Date.now() };
   return m;
 }
-// Remplacé par le module de jeu (fusion plus fine de la collection)
-let mergeGame = (a, b) => ((b.u || 0) > (a.u || 0) ? b : a);
-export const setGameMerge = fn => { mergeGame = fn; };
+// Le jeu ne fait qu'ajouter des événements (box ouvertes, jours d'ouverture, badges…) : on garde l'union des deux.
+function mergeGame(a, b, dead) {
+  const byId = (x, y) => { const m = new Map(); for (const it of [...x, ...y]) m.set(it.id, it); return [...m.values()].sort((p, q) => (p.t || 0) - (q.t || 0)); };
+  const newerById = (x, y) => { const m = new Map(); for (const it of [...x, ...y]) { const o = m.get(it.id); if (!o || (it.u || 0) > (o.u || 0)) m.set(it.id, it); } return [...m.values()]; };
+  const badges = { ...b.badges };
+  for (const [id, d] of Object.entries(a.badges)) badges[id] = badges[id] && badges[id] < d ? badges[id] : d;
+  return {
+    ...a,
+    pulls: byId(a.pulls, b.pulls), trades: byId(a.trades, b.trades), comp: byId(a.comp, b.comp),
+    visits: { ...a.visits, ...b.visits }, jokerDays: { ...a.jokerDays, ...b.jokerDays }, badges,
+    rewards: newerById(a.rewards, b.rewards).filter(r => !(dead[r.id] >= (r.u || 0))),
+    u: Math.max(a.u || 0, b.u || 0),
+  };
+}
 
 /* ---------- Synchro PC ↔ téléphone (dépôt GitHub privé) ---------- */
 // Réglages propres à chaque appareil : jamais exportés ni synchronisés

@@ -1,7 +1,9 @@
 // Point d'entrée : affichage des écrans, navigation et gestion des clics / saisies.
 import morphdom from './vendor/morphdom.js';
-import { S, onChange, storageOK, sync, syncNow } from './store.js';
-import { ui, setRender, setPref, closeSheet, ico } from './ui.js';
+import { S, onChange, storageOK, sync, syncNow, save, touch } from './store.js';
+import { ui, setRender, setPref, closeSheet, ico, toast } from './ui.js';
+import { G, awardBadges } from './game/rules.js';
+import { showLevelUp, overlayOpen } from './game/opening.js';
 import { todayKey, dayDiff } from './util.js';
 import * as today from './views/today.js';
 import * as stats from './views/stats.js';
@@ -12,7 +14,7 @@ import * as vision from './views/vision.js';
 import * as settings from './views/settings.js';
 
 const VIEWS = { today, stats, game, goals, media, vision, settings, more: { render: settings.renderMore } };
-const SHEETS = { goal: goals.sheet, media: media.sheet, domain: settings.sheet };
+const SHEETS = { goal: goals.sheet, media: media.sheet, domain: settings.sheet, measure: today.sheet, card: game.sheet };
 const MODULES = [today, stats, game, goals, media, vision, settings];
 const actions = Object.assign({}, ...MODULES.map(m => m.actions || {}), {
   tab(el) {
@@ -72,6 +74,31 @@ function render() {
   // Le calendrier s'ouvre sur les semaines les plus récentes
   const hs = app.querySelector('[data-scroll-end]');
   if (hs && !hs.dataset.done) { hs.scrollLeft = hs.scrollWidth; hs.dataset.done = '1'; }
+  checkProgress();
+}
+
+// Connexion du jour, nouveaux badges et passage de niveau
+let checking = false;
+function checkProgress() {
+  if (checking) return;
+  checking = true;
+  try {
+    const tk = todayKey();
+    let changed = false;
+    if (!S.game.visits[tk]) { S.game.visits[tk] = 1; changed = true; }
+    const fresh = awardBadges();
+    if (fresh.length) {
+      changed = true;
+      fresh.slice(0, 3).forEach((b, i) => setTimeout(() => toast(`🏅 Badge débloqué : ${b.name} · +${b.xp} XP${b.box ? ' + 🎁' : ''}`), 400 + i * 3000));
+    }
+    if (changed) { touch(S.game); save(); }
+    if (!overlayOpen() && !ui.sheet) {
+      const lv = G().lvl.level, seen = Number(localStorage.getItem('tdb2-seenLevel') || 0);
+      if (!seen) setPref('seenLevel', lv);
+      else if (lv > seen) { setPref('seenLevel', lv); showLevelUp(lv, G().title, lv - seen); }
+    }
+  } catch (e) { console.error(e); }
+  checking = false;
 }
 setRender(render);
 onChange(render);
@@ -98,6 +125,7 @@ document.addEventListener('input', e => {
   inputs[el.dataset.input](el, e);
   render();
 });
+for (const ev of ['pointermove', 'pointerdown']) document.addEventListener(ev, stats.chartHover, { passive: true });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && ui.sheet) closeSheet(); });
 document.getElementById('importFile').addEventListener('change', e => {
   const f = e.target.files && e.target.files[0];
