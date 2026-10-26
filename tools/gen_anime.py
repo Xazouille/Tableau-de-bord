@@ -240,7 +240,7 @@ def optc_url(n):
 ELLIPSE, WANO = 'Après l’ellipse', 'Pays de Wano'
 # Équipage et grands personnages, découpés par époque : (rareté, [(n° d'unité, nom affiché, saga)])
 OP = [
-    (3, [(1, 'Luffy', 'East Blue'), (3, 'Luffy Gum-Gum Bazooka', 'Alabasta')]),
+    (3, [(2, 'Luffy', 'East Blue'), (3, 'Luffy Gum-Gum Bazooka', 'Alabasta')]),
     (4, [(4, 'Luffy Gear 2', 'Enies Lobby'), (217, 'Luffy Gear 3', 'Enies Lobby')]),
     (4, [(1404, 'Luffy (après l’ellipse)', ELLIPSE), (1593, 'Luffy Gear 4 Boundman', 'Dressrosa'), (2363, 'Luffy Gear 4 Snakeman', 'Whole Cake Island')]),
     (5, [(4053, 'Luffy à Wano', WANO), (3957, 'Luffy Gear 5', WANO)]),

@@ -1,9 +1,10 @@
 // Écran « Jeu » : niveau, box, compagnon, défis, jokers, récompenses, collection et badges.
 import { S, save, touch, newId } from '../store.js';
-import { G, badgeDefs, compThreshold, FRAG_PER_BOX, JOKER_MAX, CHALLENGE_XP } from '../game/rules.js';
+import { G, badgeDefs, compThreshold, JOKER_MAX, FRAG } from '../game/rules.js';
 import { LINES, FORMS, SERIES, RARITY } from '../game/roster.js';
-import { cardHTML, tradeFragments, setCompanion } from '../game/gacha.js';
+import { cardHTML, tradeFragments, setCompanion, chestHTML } from '../game/gacha.js';
 import { startBox } from '../game/opening.js';
+import { TIERS, TIER_KEYS, PITY4, PITY5 } from '../game/tiers.js';
 import { ui, ico, toast, openSheet, closeSheet } from '../ui.js';
 import { esc, plural, fmtShort, parseKey } from '../util.js';
 
@@ -19,15 +20,23 @@ export function levelCard(compact = false) {
       <div class="xpbar"><span style="width:${pct}%"></span></div>
       <div class="lv-sub">${nf(g.lvl.into)} / ${nf(g.lvl.need)} XP${compact ? '' : ` · ${nf(g.xp)} XP au total`}</div>
     </div>
-    ${compact && g.boxes ? `<span class="lv-box">🎁<b>${g.boxes}</b></span>` : ''}
+    ${compact && g.boxes.total ? `<span class="lv-box">${chestHTML(['g', 'c', 'p'].find(k => g.boxes[k]), 'mini')}<b>${g.boxes.total}</b></span>` : ''}
   </section>`;
 }
 
-function boxCTA() {
-  const g = G();
-  return g.boxes
-    ? `<button class="box-cta" data-act="openBox"><span class="bc-emoji">🎁</span><span><b>Ouvrir ${g.boxes > 1 ? 'une box' : 'ma box'}</b><small>${plural(g.boxes, 'box disponible', 'box disponibles')}</small></span><span class="bc-n">${g.boxes}</span></button>`
-    : `<div class="box-cta off"><span class="bc-emoji">🎁</span><span><b>Prochaine box au niveau ${g.lvl.level + 1}</b><small>Encore ${nf(g.lvl.need - g.lvl.into)} XP</small></span></div>`;
+// Les trois box : combien il en reste à ouvrir, et comment en gagner
+function boxesCard() {
+  const g = G(), b = g.boxes;
+  return `<section class="card boxes-card ${b.total ? 'has' : ''}">
+    <div class="c-head"><h2>🎁 Mes box</h2><button class="link-btn" data-act="oddsOpen">Taux et garanties ›</button></div>
+    <div class="bx-list">${['p', 'c', 'g'].map(k => {
+      const T = TIERS[k], n = b[k];
+      return `<button class="bx t-${k} ${n ? 'on' : ''}" style="--tc:${T.color}" data-act="${n ? 'openBox' : 'oddsOpen'}" data-k="${k}">
+        ${chestHTML(k)}<b>${T.name}</b><small>${plural(T.cards, 'carte', 'cartes')}</small><span class="bx-n">${n ? `×${n}` : '0'}</span></button>`;
+    }).join('')}</div>
+    ${b.total ? `<button class="btn primary full summon-btn" data-act="openBox">✨ Invoquer · ${plural(b.total, 'box', 'box')}</button>`
+      : `<p class="muted small center">Prochaine grande box au niveau ${g.lvl.level + 1} · encore ${nf(g.lvl.need - g.lvl.into)} XP</p>`}
+  </section>`;
 }
 
 function companionCard() {
@@ -63,11 +72,12 @@ function companionCard() {
 
 function challengesCard() {
   const ch = G().challenges, n = ch.filter(c => c.done).length;
-  return `<section class="card"><div class="c-head"><h2>🎯 Défis de la semaine</h2><span class="muted small">${n}/${ch.length} · les 3 = 🎁</span></div>
-    ${ch.map(c => `<div class="chal ${c.done ? 'done' : ''}"><span class="chal-emoji">${c.done ? '✅' : c.emoji}</span>
-      <div class="chal-main"><div class="chal-top"><b>${esc(c.text)}</b><span class="chal-xp">+${CHALLENGE_XP} XP</span></div>
+  return `<section class="card"><div class="c-head"><h2>🎯 Défis de la semaine</h2><span class="muted small">${n}/${ch.length} réussis</span></div>
+    ${ch.map(c => `<div class="chal ${c.done ? 'done' : ''}" style="--tc:${TIERS[c.box].color}"><span class="chal-emoji">${c.done ? '✅' : c.emoji}</span>
+      <div class="chal-main"><div class="chal-top"><b>${esc(c.text)}</b><span class="chal-lv">${c.label}</span></div>
       <div class="d-bar"><span style="width:${Math.min(100, Math.round(c.value / c.goal * 100))}%"></span></div>
-      <span class="muted small">${nf(Math.min(c.value, c.goal))}${c.unit} / ${nf(c.goal)}${c.unit}</span></div></div>`).join('')}
+      <span class="muted small">${nf(Math.min(c.value, c.goal))}${c.unit} / ${nf(c.goal)}${c.unit}</span></div>
+      <span class="chal-rw" title="${TIERS[c.box].name}">${chestHTML(c.box, 'mini')}<small>+${c.xp} XP</small></span></div>`).join('')}
   </section>`;
 }
 
@@ -75,8 +85,8 @@ function resourcesCard() {
   const g = G();
   return `<div class="res-row">
     <div class="res"><span class="res-emoji">🃏</span><b>${g.jokers}<small>/${JOKER_MAX}</small></b><span>Jokers</span><small class="muted">1 gagné par semaine réussie</small></div>
-    <div class="res"><span class="res-emoji">💎</span><b>${g.frags}<small>/${FRAG_PER_BOX}</small></b><span>Fragments</span>
-      ${g.frags >= FRAG_PER_BOX ? '<button class="btn sm primary" data-act="trade">Échanger : 🎁</button>' : '<small class="muted">Doublons → fragments</small>'}</div>
+    <div class="res"><span class="res-emoji">💎</span><b>${nf(g.frags)}</b><span>Fragments</span>
+      <button class="btn sm ${g.frags >= TIERS.p.cost ? 'primary' : ''}" data-act="shopOpen">Boutique</button></div>
   </div>`;
 }
 
@@ -102,7 +112,7 @@ function xpCard() {
 }
 
 function profil() {
-  return `${levelCard()}${boxCTA()}<div class="two"><div>${companionCard()}${challengesCard()}</div><div>${resourcesCard()}${rewardsCard()}${xpCard()}</div></div>`;
+  return `${levelCard()}${boxesCard()}<div class="two"><div>${companionCard()}${challengesCard()}</div><div>${resourcesCard()}${rewardsCard()}${xpCard()}</div></div>`;
 }
 
 function collection() {
@@ -128,9 +138,9 @@ function badges() {
   const got = S.game.badges, defs = badgeDefs();
   const cats = [...new Set(defs.map(b => b.cat))];
   const n = defs.filter(b => got[b.id]).length;
-  return `<p class="muted center">${n} / ${defs.length} badges · chaque badge rapporte de l’XP, certains une box 🎁</p>` + cats.map(c => `<h2 class="sec">${c}</h2><div class="badges">${defs.filter(b => b.cat === c).map(b => `
+  return `<p class="muted center">${n} / ${defs.length} badges · chaque badge rapporte de l’XP, certains une box</p>` + cats.map(c => `<h2 class="sec">${c}</h2><div class="badges">${defs.filter(b => b.cat === c).map(b => `
     <div class="badge ${got[b.id] ? 'on' : ''}"><span class="b-emoji">${b.emoji}</span><b>${esc(b.name)}</b><small>${esc(b.desc)}</small>
-      <span class="b-xp">${got[b.id] ? `✓ ${fmtShort(parseKey(got[b.id]))}` : `+${b.xp} XP${b.box ? ' · 🎁' : ''}`}</span></div>`).join('')}</div>`).join('');
+      <span class="b-xp">${got[b.id] ? `✓ ${fmtShort(parseKey(got[b.id]))}` : `+${b.xp} XP${b.box ? ` · ${TIERS[b.box].name}` : ''}`}</span></div>`).join('')}</div>`).join('');
 }
 
 export function render() {
@@ -158,10 +168,48 @@ export function sheet(s) {
     </div></div>`;
 }
 
+// Taux de chaque box, comment les gagner, et où en sont les garanties
+export function oddsSheet() {
+  const g = G();
+  const bar = (left, max) => `<div class="xpbar alt"><span style="width:${Math.round((max - left) / max * 100)}%"></span></div>`;
+  const left4 = Math.max(1, PITY4 - g.since4), left5 = Math.max(1, PITY5 - g.since5);
+  return `<div class="odds-sheet"><h2>Taux des box</h2>
+    <p class="muted small">Chance d’obtenir chaque rareté, pour chaque carte.</p>
+    <div class="odds-wrap"><table class="odds"><thead><tr><th></th>${[1, 2, 3, 4, 5].map(r => `<th style="color:${RARITY[r].color}">${r}★</th>`).join('')}</tr></thead>
+      <tbody>${TIER_KEYS.map(k => `<tr><th><span class="od-name">${chestHTML(k, 'mini')}${TIERS[k].name}</span></th>${TIERS[k].odds.map(o => `<td>${o ? `${o} %` : '–'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+    <div class="odds-how">${TIER_KEYS.map(k => {
+      const T = TIERS[k];
+      return `<div class="oh" style="--tc:${T.color}">${chestHTML(k)}<div><b>${T.name} · ${plural(T.cards, 'carte', 'cartes')}</b>
+        ${T.min > 1 ? `<small>Au moins une carte ${T.min}★ garantie</small>` : '<small>Pas de 5★ dedans</small>'}
+        <ul>${T.how.map(h => `<li>${esc(h)}</li>`).join('')}</ul></div></div>`;
+    }).join('')}</div>
+    <p class="eyebrow">Garanties des box classiques et grandes</p>
+    <div class="pity"><div class="pity-row"><span>Une 4★ ou mieux</span>${bar(left4, PITY4)}<small>dans ${plural(left4, 'carte', 'cartes')} max</small></div>
+      <div class="pity-row"><span>Une 5★</span>${bar(left5, PITY5)}<small>dans ${plural(left5, 'carte', 'cartes')} max</small></div></div>
+  </div>`;
+}
+
+// Boutique : fragments (gagnés avec les doublons) contre des box
+export function shopSheet() {
+  const g = G();
+  return `<div class="shop-sheet"><h2>💎 Boutique</h2>
+    <p class="muted">Chaque doublon te donne des fragments. Échange-les contre une box.</p>
+    <p class="shop-bal">💎 <b>${nf(g.frags)}</b> fragments</p>
+    <div class="shop-list">${TIER_KEYS.map(k => {
+      const T = TIERS[k], ok = g.frags >= T.cost;
+      return `<div class="shop-item ${ok ? '' : 'off'}" style="--tc:${T.color}">${chestHTML(k)}<span class="si-txt"><b>${T.name}</b><small>${plural(T.cards, 'carte', 'cartes')}</small></span>
+        <button class="btn sm ${ok ? 'primary' : ''}" ${ok ? `data-act="trade" data-k="${k}"` : 'disabled'}>💎 ${T.cost}</button></div>`;
+    }).join('')}</div>
+    <p class="muted small">Un doublon rapporte ${[1, 2, 3, 4, 5].map(r => `${FRAG[r]} 💎 en ${r}★`).join(', ')}.</p>
+  </div>`;
+}
+
 export const actions = {
   gameTab(el) { ui.gameTab = el.dataset.t; ui.tab = 'game'; },
-  openBox() { startBox(); },
-  trade() { if (tradeFragments()) { toast('💎 → 🎁 Nouvelle box !'); startBox(); } },
+  openBox(el) { startBox(el.dataset.k); },
+  oddsOpen() { openSheet({ kind: 'odds' }); },
+  shopOpen() { openSheet({ kind: 'shop' }); },
+  trade(el) { const k = el.dataset.k; if (tradeFragments(k)) { closeSheet(); startBox(k); } },
   collSeries(el) { ui.collSeries = el.dataset.s; ui.collLimit = 120; },
   collRarity(el) { ui.collRarity = Number(el.dataset.r); ui.collLimit = 120; },
   collOwned() { ui.collOwned = !ui.collOwned; ui.collLimit = 120; },

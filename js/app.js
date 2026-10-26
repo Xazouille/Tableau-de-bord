@@ -1,10 +1,12 @@
 // Point d'entrée : affichage des écrans, navigation et gestion des clics / saisies.
 import morphdom from './vendor/morphdom.js';
 import { S, onChange, storageOK, sync, syncNow, save, touch, DEMO, setDemo, replaceAll, leaving } from './store.js';
-import { ui, setRender, setPref, pref, closeSheet, ico, toast } from './ui.js';
+import { ui, setRender, setPref, pref, closeSheet, ico, pushModal, popModal, setBackHandler, banner } from './ui.js';
 import { makeDemo } from './demo.js';
 import { G, awardBadges } from './game/rules.js';
-import { showLevelUp, overlayOpen } from './game/opening.js';
+import { showLevelUp, overlayOpen, requestClose, startBox } from './game/opening.js';
+import { chestHTML } from './game/gacha.js';
+import { TIERS, TIER_KEYS, levelRewards } from './game/tiers.js';
 import { todayKey, dayDiff } from './util.js';
 import * as today from './views/today.js';
 import * as stats from './views/stats.js';
@@ -15,7 +17,7 @@ import * as vision from './views/vision.js';
 import * as settings from './views/settings.js';
 
 const VIEWS = { today, stats, game, goals, media, vision, settings, more: { render: settings.renderMore } };
-const SHEETS = { goal: goals.sheet, media: media.sheet, domain: settings.sheet, measure: today.sheet, card: game.sheet };
+const SHEETS = { goal: goals.sheet, media: media.sheet, domain: settings.sheet, measure: today.sheet, card: game.sheet, odds: game.oddsSheet, shop: game.shopSheet };
 const MODULES = [today, stats, game, goals, media, vision, settings];
 const actions = Object.assign({}, ...MODULES.map(m => m.actions || {}), {
   tab(el) {
@@ -59,10 +61,18 @@ function render() {
   const view = VIEWS[ui.tab] || today;
   const demo = DEMO ? '<button class="demo-bar" data-act="demoOff">🧪 Mode démo : tout est débloqué · <b>Quitter la démo</b></button>' : '';
   const warn = storageOK ? '' : '<div class="card warn">Ce navigateur bloque l’enregistrement (navigation privée ?). Tes données seront perdues à la fermeture.</div>';
-  morphdom(app, `<main id="app" class="view-${ui.tab}">${demo}${warn}${view.render()}</main>`, MORPH);
+  // Un identifiant par onglet : changer d'onglet remplace la page (et rejoue son animation d'entrée)
+  morphdom(app, `<main id="app" class="view-${ui.tab}">${demo}${warn}<div class="page" id="pg-${ui.tab}">${view.render()}</div></main>`, MORPH);
 
   if (ui.sheet !== lastSheet) {
+    const prev = lastSheet;
     lastSheet = ui.sheet;
+    if (ui.sheet && !prev) pushModal();
+    if (!ui.sheet && prev) {
+      popModal();
+      // Fenêtre fermée sans rien choisir (ex. « combien de temps ? ») : son action par défaut
+      if (prev.onClose && !prev.handled) setTimeout(prev.onClose, 0);
+    }
     if (ui.sheet) {
       const html = (SHEETS[ui.sheet.kind] || (() => ''))(ui.sheet);
       sheetRoot.innerHTML = `<div class="backdrop" data-act="closeSheet"></div>
@@ -72,7 +82,7 @@ function render() {
       document.body.classList.add('lock');
     } else {
       sheetRoot.classList.remove('open');
-      document.body.classList.remove('lock');
+      if (!overlayOpen()) document.body.classList.remove('lock');
       setTimeout(() => { if (!ui.sheet) { sheetRoot.hidden = true; sheetRoot.innerHTML = ''; } }, 250);
     }
   }
@@ -82,7 +92,7 @@ function render() {
   checkProgress();
 }
 
-// Connexion du jour, nouveaux badges et passage de niveau
+// Connexion du jour, nouveaux badges, passage de niveau et box gagnées
 let checking = false;
 function checkProgress() {
   if (checking) return;
@@ -92,18 +102,36 @@ function checkProgress() {
     let changed = false;
     if (!S.game.visits[tk]) { S.game.visits[tk] = 1; changed = true; }
     const fresh = awardBadges();
-    if (fresh.length) {
-      changed = true;
-      fresh.slice(0, 3).forEach((b, i) => setTimeout(() => toast(`🏅 Badge débloqué : ${b.name} · +${b.xp} XP${b.box ? ' + 🎁' : ''}`), 400 + i * 3000));
-    }
+    if (fresh.length) changed = true;
     if (changed) { touch(S.game); save(); }
-    if (!overlayOpen() && !ui.sheet) {
-      const lv = G().lvl.level, seen = Number(pref('seenLevel') || 0);
-      if (!seen) setPref('seenLevel', lv);
-      else if (lv > seen) { setPref('seenLevel', lv); showLevelUp(lv, G().title, lv - seen); }
+    fresh.slice(0, 4).forEach(b => banner({ icon: b.emoji, title: `Badge : ${b.name}`, sub: `+${b.xp} XP${b.box ? ` · ${TIERS[b.box].name} offerte` : ''}`, color: '#f5b700', cls: 'badge-ban' }));
+    if (fresh.length > 4) banner({ icon: '🏅', title: `Et ${fresh.length - 4} autres badges !`, sub: 'Jeu → Badges' });
+
+    const g = G(), lv = g.lvl.level, seenLv = Number(pref('seenLevel') || 0);
+    const free = !overlayOpen() && !ui.sheet;
+    // Niveau gagné pendant qu'une fenêtre est ouverte : on attend qu'elle se ferme pour tout annoncer
+    if (seenLv && lv > seenLv && !free) return;
+    let lvUp = null;
+    if (!seenLv) setPref('seenLevel', lv);
+    else if (lv > seenLv) { setPref('seenLevel', lv); lvUp = [seenLv, lv]; showLevelUp(lv, g.title, lv - seenLv); }
+
+    // Box gagnées depuis la dernière fois (celles d'un passage de niveau sont déjà annoncées par son écran)
+    const earned = g.boxesEarned;
+    let seen = null;
+    try { seen = JSON.parse(pref('seenBoxes')); } catch (e) {}
+    if (seen) {
+      const inc = {};
+      for (const k of TIER_KEYS) inc[k] = Math.max(0, earned[k] - (seen[k] || 0));
+      if (lvUp) for (let L = lvUp[0] + 1; L <= lvUp[1]; L++) for (const t of levelRewards(L)) inc[t] = Math.max(0, inc[t] - 1);
+      for (const k of ['g', 'c', 'p']) {
+        if (!inc[k]) continue;
+        banner({ icon: chestHTML(k, 'mini'), title: inc[k] > 1 ? `${inc[k]} ${TIERS[k].many} gagnées !` : `${TIERS[k].name} gagnée !`,
+          sub: 'Touche pour l’ouvrir', color: TIERS[k].color, cls: 'box-ban', onTap: () => startBox(k), still: () => G().boxes[k] > 0 });
+      }
     }
+    if (!seen || TIER_KEYS.some(k => earned[k] !== seen[k])) setPref('seenBoxes', JSON.stringify(earned));
   } catch (e) { console.error(e); }
-  checking = false;
+  finally { checking = false; }
 }
 setRender(render);
 onChange(render);
@@ -131,7 +159,15 @@ document.addEventListener('input', e => {
   render();
 });
 for (const ev of ['pointermove', 'pointerdown']) document.addEventListener(ev, stats.chartHover, { passive: true });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && ui.sheet) closeSheet(); });
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (overlayOpen()) requestClose(); else if (ui.sheet) closeSheet();
+});
+// Bouton « retour » du téléphone : ferme l'animation ou la fenêtre ouverte
+setBackHandler(() => {
+  if (overlayOpen()) requestClose();
+  else if (ui.sheet) { ui.sheet = null; render(); }
+});
 document.getElementById('importFile').addEventListener('change', e => {
   const f = e.target.files && e.target.files[0];
   if (f) settings.importFile(f);

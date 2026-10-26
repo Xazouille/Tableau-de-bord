@@ -3,9 +3,9 @@ import { S, save, isDone, setDone, setNote, valOf, setVal, activeDomains, touch 
 import { dayCount, globalStreak, domainStreak, isPerfect, isGoodDay, isJoker } from '../stats.js';
 import { G, PERFECT_BONUS } from '../game/rules.js';
 import { levelCard } from './game.js';
-import { startBox } from '../game/opening.js';
 import { caseXP, caseLabel, fmtMoney, moneyBonus } from '../measures.js';
-import { ui, ico, toast, openSheet, closeSheet } from '../ui.js';
+import { ui, ico, toast, openSheet, closeSheet, banner } from '../ui.js';
+import { chestHTML } from '../game/gacha.js';
 import { key, today, addDays, parseKey, fmtLong, fmtShort, esc, todayKey, seeded, plural } from '../util.js';
 import { burst, confetti, buzz, floatText } from '../fx.js';
 
@@ -52,6 +52,9 @@ function hero(k, n, c) {
     : pct < 0.5 ? CHEERS_LOW[Math.floor(rnd() * CHEERS_LOW.length)]
     : CHEERS[Math.floor(rnd() * CHEERS.length)];
   const xp = G().dayXP[k] || 0;
+  // Prochaine box du jour : petite à 5 cases, classique quand tout est coché
+  const sAt = G().smallAt;
+  const boxChip = !n ? '' : perfect ? '🎁 2 box gagnées' : c >= sAt ? `🎁 ${c}/${n} → box classique` : `🎁 ${c}/${sAt} → petite box`;
   return `<section class="hero ${perfect ? 'perfect' : ''}">
     <div class="ring" role="img" aria-label="${c} sur ${n}">
       <svg viewBox="0 0 120 120"><defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#ffe680"/></linearGradient></defs>
@@ -65,6 +68,7 @@ function hero(k, n, c) {
       <div class="h-chips">
         <span class="chip-glass" title="Série globale">🔥 ${plural(st.n, 'jour', 'jours')}</span>
         <span class="chip-glass" title="XP gagnée ${isToday ? 'aujourd’hui' : 'ce jour-là'}">⚡ +${xp} XP</span>
+        ${boxChip ? `<span class="chip-glass box-chip ${c >= sAt ? 'got' : ''}">${boxChip}</span>` : ''}
         ${!isToday ? `<span class="chip-glass">✏️ ${fmtShort(parseKey(k))}</span>` : ''}
       </div>
     </div>
@@ -103,7 +107,7 @@ export function render() {
       <div><p class="eyebrow">${fmtLong(parseKey(todayKey()))}</p><h1>Salut ${esc(S.profile.name || 'toi')} 👋</h1></div>
     </header>
     ${levelCard(true)}
-    ${g.boxes ? `<button class="box-banner" data-act="openBox">🎁 <b>${plural(g.boxes, 'box à ouvrir', 'box à ouvrir')} !</b> <span>Ouvrir ${ico('chev')}</span></button>` : ''}
+    ${g.boxes.total ? `<button class="box-banner" data-act="openBox"><span class="bb-chests">${['g', 'c', 'p'].filter(t => g.boxes[t]).map(t => `<span class="bb-c">${chestHTML(t, 'mini')}<b>${g.boxes[t]}</b></span>`).join('')}</span><b class="bb-txt">${plural(g.boxes.total, 'box à ouvrir', 'box à ouvrir')} !</b><span class="bb-go">Invoquer ${ico('chev')}</span></button>` : ''}
     ${comp && comp.badStreak >= 1 && k === todayKey() ? `<p class="comp-warn">⚠️ ${esc(comp.form.name)} est en danger : coche École, Sommeil (7 h+) ou Alimentation aujourd’hui.</p>` : ''}
     <div class="segs days">${days}</div>
     ${hero(k, n, c)}
@@ -145,7 +149,10 @@ function afterCheck(id, wasPerfect) {
   const el = document.querySelector(`.tile[data-id="${id}"]`);
   const xp = (G().caseXPs[k] || {})[id];
   if (xp) floatText(el, `+${xp} XP`);
-  if (!wasPerfect && isPerfect(k)) setTimeout(() => { confetti(); buzz([30, 60, 30]); toast(`🏆 Journée parfaite ! +${PERFECT_BONUS} XP`); }, 250);
+  if (!wasPerfect && isPerfect(k)) {
+    setTimeout(() => { confetti(); buzz([30, 60, 30]); }, 250);
+    banner({ icon: '🏆', title: 'Journée parfaite !', sub: `+${PERFECT_BONUS} XP bonus · tu es une machine`, color: '#f59e0b', cls: 'gold-ban' });
+  }
 }
 
 export const actions = {
@@ -158,23 +165,23 @@ export const actions = {
     if (was) setVal(k, id, null);
     ui.justDone = was ? null : id;
     if (!was) { burst(el, d.color); buzz(15); } else buzz(6);
-    if (!was && measured) { save(); openSheet({ kind: 'measure', id, k }); }
+    // Fenêtre « combien ? » : si on la ferme sans choisir, la case reste cochée avec l'XP de base
+    if (!was && measured) { save(); openSheet({ kind: 'measure', id, k, onClose: () => afterCheck(id, wasPerfect) }); }
     else if (!was) afterCheck(id, wasPerfect);
     else save();
     setTimeout(() => { ui.justDone = null; }, 600);
   },
   measureSet(el) {
-    const { id, k } = ui.sheet, wasPerfect = isPerfect(k);
+    const s = ui.sheet, { id, k } = s, wasPerfect = s.onClose ? false : isPerfect(k);
     setDone(k, id, true); setVal(k, id, Number(el.dataset.v));
-    ui.sheet = null; afterCheck(id, wasPerfect);
+    s.handled = true; ui.sheet = null; afterCheck(id, wasPerfect);
   },
   measureUncheck() {
-    const { id, k } = ui.sheet;
-    setDone(k, id, false); setVal(k, id, null); ui.sheet = null; save();
+    const s = ui.sheet, { id, k } = s;
+    setDone(k, id, false); setVal(k, id, null); s.handled = true; ui.sheet = null; save();
   },
   day(el) { ui.day = el.dataset.k; },
   shuffleQuote() { ui.quoteShift = (ui.quoteShift || 0) + 1; },
-  openBox() { startBox(); },
   useJoker() {
     const y = key(addDays(today(), -1));
     if (G().jokers < 1) return;
@@ -185,19 +192,19 @@ export const actions = {
 
 export const forms = {
   measureList(f) {
-    const { id, k } = ui.sheet, d = domainById(id), wasPerfect = isPerfect(k);
+    const s = ui.sheet, { id, k } = s, d = domainById(id), wasPerfect = s.onClose ? false : isPerfect(k);
     const sel = d.m.items.map((_, i) => i).filter(i => f['i' + i]);
-    ui.sheet = null;
+    s.handled = true; ui.sheet = null;
     if (!sel.length) { setDone(k, id, false); setVal(k, id, null); save(); return; }
     setDone(k, id, true); setVal(k, id, sel); afterCheck(id, wasPerfect);
   },
   money(f) {
-    const { id, k } = ui.sheet, wasPerfect = isPerfect(k);
+    const s = ui.sheet, { id, k } = s, wasPerfect = s.onClose ? false : isPerfect(k);
     const amount = Math.round(Number(String(f.amount).replace(',', '.')) * 100) / 100;
     if (!isFinite(amount)) return false;
     const pm = prevMoney(k);
     setDone(k, id, true); setVal(k, id, amount);
-    ui.sheet = null; afterCheck(id, wasPerfect);
+    s.handled = true; ui.sheet = null; afterCheck(id, wasPerfect);
     if (typeof pm === 'number' && amount !== pm) {
       const diff = amount - pm, b = moneyBonus(diff);
       toast(`${diff > 0 ? '📈 +' : '📉 '}${fmtMoney(diff)} depuis la dernière fois${b ? ` · bonus +${b} XP` : ''}`);

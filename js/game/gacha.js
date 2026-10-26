@@ -1,33 +1,34 @@
-// Ouverture des box, échange de fragments et choix du compagnon.
+// Ouverture des box (petite, classique, grande), échange de fragments et choix du compagnon.
 import { S, save, touch } from '../store.js';
 import { uid, todayKey, esc } from '../util.js';
-import { G, FRAG, FRAG_PER_BOX } from './rules.js';
+import { G, FRAG } from './rules.js';
 import { LINES, FORMS, SERIES, RARITY, linesByRarity, bigCard } from './roster.js';
+import { TIERS, PITY4, PITY5 } from './tiers.js';
 
-export const BOX_SIZE = 3;
-
-// Chances : 1★ 50 %, 2★ 28 %, 3★ 15 %, 4★ 6 %, 5★ 1 % ; un 4★ au moins toutes les 10 box, un 5★ toutes les 50
-function rollRarity(since4, since5) {
-  if (since5 >= 49) return 5;
-  const x = Math.random() * 100;
-  let r = x < 1 ? 5 : x < 7 ? 4 : x < 22 ? 3 : x < 50 ? 2 : 1;
-  if (since4 >= 9 && r < 4) r = Math.random() < 1 / 7 ? 5 : 4;
-  return r;
+function roll(odds) {
+  let x = Math.random() * 100;
+  for (let r = 1; r <= 5; r++) { x -= odds[r - 1]; if (x < 0) return r; }
+  return 1;
 }
 
-// Une box = un booster de 3 cartes (au moins une 2★), présentées de la moins rare à la plus rare
-export function openBox() {
-  const g = G();
-  if (g.boxes <= 0) return null;
+// Ouvre une box du type k : tire ses cartes, les enregistre et les renvoie de la moins rare à la plus rare
+export function openBox(k) {
+  const g = G(), T = TIERS[k];
+  if (!T || !(g.boxes[k] > 0)) return null;
   let since4 = g.since4, since5 = g.since5;
   const rs = [];
-  for (let i = 0; i < BOX_SIZE; i++) {
-    const r = rollRarity(since4, since5);
+  for (let i = 0; i < T.cards; i++) {
+    let r = roll(T.odds);
+    if (T.pity) {
+      if (since5 + 1 >= PITY5) r = 5;
+      else if (since4 + 1 >= PITY4 && r < 4) r = 4;
+      since4 = r >= 4 ? 0 : since4 + 1;
+      since5 = r >= 5 ? 0 : since5 + 1;
+    }
     rs.push(r);
-    since4 = r >= 4 ? 0 : since4 + 1;
-    since5 = r >= 5 ? 0 : since5 + 1;
   }
-  if (Math.max(...rs) < 2) rs[rs.length - 1] = 2;
+  // Rareté minimale garantie dans chaque box (2★ pour une classique, 3★ pour une grande)
+  if (Math.max(...rs) < T.min) rs[rs.length - 1] = T.min;
   rs.sort((a, b) => a - b);
   const box = uid(), now = Date.now(), seen = new Set(Object.keys(g.owned)), out = [];
   rs.forEach((r0, i) => {
@@ -36,18 +37,31 @@ export function openBox() {
     const line = pool[Math.floor(Math.random() * pool.length)];
     const isNew = !seen.has(line.id);
     seen.add(line.id);
-    S.game.pulls.push({ id: uid(), b: box, l: line.id, r, t: now + i });
+    S.game.pulls.push({ id: uid(), b: box, k, l: line.id, r, t: now + i });
     out.push({ line, form: FORMS[line.base], rarity: r, isNew, frag: isNew ? 0 : FRAG[r] || 0 });
   });
   touch(S.game); save();
   return out;
 }
 
-export function tradeFragments() {
-  if (G().frags < FRAG_PER_BOX) return false;
-  S.game.trades.push({ id: uid(), t: Date.now() });
+// Boutique : des fragments contre une box
+export function tradeFragments(k) {
+  const T = TIERS[k];
+  if (!T || G().frags < T.cost) return false;
+  S.game.trades.push({ id: uid(), k, t: Date.now() });
   touch(S.game); save();
   return true;
+}
+
+// Coffre dessiné en CSS, aux couleurs de son type ; les fissures apparaissent pendant l'invocation
+export function chestHTML(k, cls = '') {
+  return `<span class="chest t-${k} ${cls}" aria-hidden="true">
+    <span class="ch-glow"></span>
+    <span class="ch-body"><span class="ch-band"></span><span class="ch-lock"></span></span>
+    <span class="ch-lid"><span class="ch-band"></span></span>
+    ${k === 'g' ? '<span class="ch-gems"><i></i><i></i><i></i></span>' : ''}
+    ${cls === 'big' ? '<svg class="ch-cracks" viewBox="0 0 100 100"><path class="ck ck1" pathLength="100" d="M50 34 44 48 53 57 46 74"/><path class="ck ck2" pathLength="100" d="M26 50 35 60 29 72M74 50 66 61 72 74"/><path class="ck ck3" pathLength="100" d="M14 66 26 72 21 88M86 66 74 74 80 90M50 78 56 94"/></svg>' : ''}
+  </span>`;
 }
 
 export function setCompanion(lineId) {

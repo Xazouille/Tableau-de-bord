@@ -109,10 +109,13 @@ export function resetAll() { S = defaults(); save(); }
 /* ---------- Jours ---------- */
 export const dayOf = k => S.days[k];
 export const isDone = (k, id) => !!(S.days[k] && S.days[k].c && S.days[k].c[id]);
+// Heure de modification de chaque case (et de la phrase) : deux appareils peuvent modifier le même jour sans rien perdre
+const stamp = (day, id) => { day.t = day.t || {}; day.t[id] = Date.now(); };
 export function setDone(k, id, val) {
   const day = S.days[k] || { c: {}, note: '' };
   if (!day.c) day.c = {};
   if (val) day.c[id] = 1; else delete day.c[id];
+  stamp(day, id);
   S.days[k] = touch(day);
 }
 // Détail de ce qui a été fait (temps, liste, montant…)
@@ -121,11 +124,13 @@ export function setVal(k, id, v) {
   const day = S.days[k] || { c: {}, note: '' };
   day.x = day.x || {};
   if (v == null) delete day.x[id]; else day.x[id] = v;
+  stamp(day, id);
   S.days[k] = touch(day);
 }
 export function setNote(k, note) {
   const day = S.days[k] || { c: {}, note: '' };
   day.note = note;
+  stamp(day, '_note');
   S.days[k] = touch(day);
 }
 export const activeDomains = () => S.domains.list.filter(d => !d.archived);
@@ -155,7 +160,7 @@ export function merge(a, b) {
   for (const k of ['profile', 'settings', 'domains', 'vision']) m[k] = newer(a[k], b[k]);
   m.game = mergeGame(a.game, b.game, m.dead);
   m.days = { ...a.days };
-  for (const [k, d] of Object.entries(b.days)) m.days[k] = newer(m.days[k], d);
+  for (const [k, d] of Object.entries(b.days)) m.days[k] = mergeDay(m.days[k], d);
   for (const list of ['goals', 'media']) {
     const byId = new Map();
     for (const it of [...a[list], ...b[list]]) byId.set(it.id, newer(byId.get(it.id), it));
@@ -164,6 +169,29 @@ export function merge(a, b) {
   m.meta = { modified: Date.now() };
   return m;
 }
+// Un même jour modifié sur deux appareils : chaque case (et la phrase) garde sa version la plus récente
+function mergeDay(a, b) {
+  if (!a) return b;
+  if (!b) return a;
+  // Jour d'une ancienne version (sans heure par case) : l'heure du jour entier
+  const ts = (d, id) => d.t ? (d.t[id] || 0) : (d.u || 0);
+  const out = { c: {}, x: {}, note: '', t: {}, u: Math.max(a.u || 0, b.u || 0) };
+  const ids = new Set([a, b].flatMap(d => [...Object.keys(d.c || {}), ...Object.keys(d.x || {}), ...Object.keys(d.t || {})]));
+  ids.delete('_note');
+  for (const id of ids) {
+    const ta = ts(a, id), tb = ts(b, id);
+    // À égalité, la case cochée l'emporte
+    const src = tb > ta || (tb === ta && b.c && b.c[id] && !(a.c && a.c[id])) ? b : a;
+    if (src.c && src.c[id]) out.c[id] = 1;
+    if (src.x && src.x[id] !== undefined) out.x[id] = src.x[id];
+    out.t[id] = Math.max(ts(a, id), ts(b, id));
+  }
+  const nb = ts(b, '_note') > ts(a, '_note');
+  out.note = (nb ? b.note : a.note) || '';
+  out.t._note = Math.max(ts(a, '_note'), ts(b, '_note'));
+  return out;
+}
+
 // Le jeu ne fait qu'ajouter des événements (box ouvertes, jours d'ouverture, badges…) : on garde l'union des deux.
 function mergeGame(a, b, dead) {
   const byId = (x, y) => { const m = new Map(); for (const it of [...x, ...y]) m.set(it.id, it); return [...m.values()].sort((p, q) => (p.t || 0) - (q.t || 0)); };

@@ -4,11 +4,12 @@
 import { S, isDone, valOf, activeDomains } from '../store.js';
 import { key, parseKey, today, todayKey, addDays, weekStart, dayDiff, seeded } from '../util.js';
 import { caseXP, SLEEP_OK_FROM } from '../measures.js';
-import { isPerfect, isGoodDay, bestOf, globalBest, periodScore } from '../stats.js';
+import { isPerfect, isGoodDay, bestOf, globalBest, periodScore, dayCount } from '../stats.js';
 import { LINES, FORMS } from './roster.js';
+import { TIERS, TIER_KEYS, kindOf, smallAt, levelRewards } from './tiers.js';
 
-export const PERFECT_BONUS = 50, NOTE_XP = 5, VISIT_XP = 10, MEDIA_XP = 50, STEP_XP = 15, CHALLENGE_XP = 100;
-export const FRAG_PER_BOX = 50, FRAG = { 1: 3, 2: 6, 3: 12, 4: 25, 5: 50 };
+export const PERFECT_BONUS = 50, NOTE_XP = 5, VISIT_XP = 10, MEDIA_XP = 50, STEP_XP = 15;
+export const FRAG = { 1: 3, 2: 6, 3: 12, 4: 25, 5: 50 };
 export const JOKER_MAX = 3;
 
 /* ---------- Niveaux ---------- */
@@ -45,35 +46,40 @@ export function isBadDay(k) {
 
 /* ---------- Défis de la semaine ---------- */
 const LONG_EXCLUDED = new Set(['sommeil', 'ecran']);
-const CHALLENGES = {
-  perfect: () => ({ emoji: '🏆', text: '2 journées parfaites', goal: 2, prog: w => w.days.filter(isPerfect).length }),
-  pct: () => ({ emoji: '📈', text: 'Semaine à 70 % ou plus', goal: 70, unit: ' %', prog: w => w.pct }),
-  notes: () => ({ emoji: '✍️', text: 'Ta phrase du jour 5 fois', goal: 5, prog: w => w.days.filter(k => S.days[k] && S.days[k].note && S.days[k].note.trim()).length }),
-  xp: () => ({ emoji: '⚡', text: 'Gagner 900 XP', goal: 900, unit: ' XP', prog: w => w.xp }),
-  long: () => ({ emoji: '⏱️', text: '3 activités longues (1 h et +)', goal: 3, prog: w => {
-    let n = 0;
-    for (const k of w.days) for (const d of activeDomains()) {
-      const v = valOf(k, d.id);
-      if (!LONG_EXCLUDED.has(d.id) && isDone(k, d.id) && d.m && d.m.kind === 'levels' && v != null && d.m.opts[v] && d.m.opts[v][1] >= 2) n++;
-    }
-    return n;
-  } }),
-  good: () => ({ emoji: '🔥', text: '6 journées réussies', goal: 6, prog: w => w.days.filter(isGoodDay).length }),
+function longCount(w) {
+  let n = 0;
+  for (const k of w.days) for (const d of activeDomains()) {
+    const v = valOf(k, d.id);
+    if (!LONG_EXCLUDED.has(d.id) && isDone(k, d.id) && d.m && d.m.kind === 'levels' && v != null && d.m.opts[v] && d.m.opts[v][1] >= 2) n++;
+  }
+  return n;
+}
+// Chaque type de défi existe en 3 niveaux : facile (petite box), moyen (box classique), difficile (grande box)
+const CH_LEVELS = [{ box: 'p', xp: 50, label: 'Facile' }, { box: 'c', xp: 100, label: 'Moyen' }, { box: 'g', xp: 200, label: 'Difficile' }];
+const CH_KINDS = {
+  perfect: lv => { const n = [1, 2, 4][lv]; return { emoji: '🏆', text: n === 1 ? 'Une journée parfaite' : `${n} journées parfaites`, goal: n, prog: w => w.days.filter(isPerfect).length }; },
+  good: lv => { const n = [3, 5, 7][lv]; return { emoji: '🔥', text: n === 7 ? '7 journées réussies sur 7' : `${n} journées réussies`, goal: n, prog: w => w.days.filter(isGoodDay).length }; },
+  notes: lv => { const n = [3, 5, 7][lv]; return { emoji: '✍️', text: `Ta phrase du jour ${n} fois`, goal: n, prog: w => w.days.filter(k => S.days[k] && S.days[k].note && S.days[k].note.trim()).length }; },
+  xp: lv => { const n = [500, 1000, 1800][lv]; return { emoji: '⚡', text: `Gagner ${n.toLocaleString('fr-FR')} XP`, goal: n, unit: ' XP', prog: w => w.xp }; },
+  long: lv => { const n = [2, 3, 6][lv]; return { emoji: '⏱️', text: `${n} activités longues (1 h et +)`, goal: n, prog: longCount }; },
+  pct: lv => { const n = [50, 65, 80][lv]; return { emoji: '📈', text: `Semaine à ${n} % ou plus`, goal: n, unit: ' %', prog: w => w.pct }; },
+  dom: (lv, rnd) => {
+    const doms = activeDomains(), d = doms[Math.floor(rnd() * doms.length)], n = [3, 5, 7][lv];
+    return d && { emoji: d.emoji, text: n === 7 ? `${d.name} 7 jours sur 7` : `${d.name} : ${n} jours`, goal: n, prog: w => w.days.filter(k => isDone(k, d.id)).length };
+  },
 };
 function weekChallenges(ws, dayXP) {
-  const rnd = seeded('defis' + key(ws));
-  const doms = activeDomains();
-  const list = [];
-  if (doms.length) {
-    const d = doms[Math.floor(rnd() * doms.length)], n = 4 + Math.floor(rnd() * 2);
-    list.push({ id: 'dom', emoji: d.emoji, text: `${d.name} : ${n} jours`, goal: n, prog: w => w.days.filter(k => isDone(k, d.id)).length });
-  }
-  const ids = Object.keys(CHALLENGES);
-  while (list.length < 3 && ids.length) list.push({ id: ids[0], ...CHALLENGES[ids.splice(Math.floor(rnd() * ids.length), 1)[0]]() });
+  const rnd = seeded('defis2' + key(ws));
+  const kinds = Object.keys(CH_KINDS);
+  const list = CH_LEVELS.map((lvl, lv) => {
+    let c = null;
+    while (!c && kinds.length) c = CH_KINDS[kinds.splice(Math.floor(rnd() * kinds.length), 1)[0]](lv, rnd);
+    return c && { ...c, ...lvl };
+  }).filter(Boolean);
   const t = today(), days = [];
   for (let i = 0; i < 7; i++) { const d = addDays(ws, i); if (d <= t) days.push(key(d)); }
   const w = { days, pct: periodScore(ws, addDays(ws, 6)).pct, xp: days.reduce((a, k) => a + (dayXP[k] || 0), 0) };
-  return list.map(c => { const v = c.prog(w); return { emoji: c.emoji, text: c.text, goal: c.goal, unit: c.unit || '', value: v, done: v >= c.goal }; });
+  return list.map(c => { const v = c.prog(w); return { emoji: c.emoji, text: c.text, goal: c.goal, unit: c.unit || '', value: v, done: v >= c.goal, box: c.box, xp: c.xp, label: c.label }; });
 }
 
 /* ---------- Calcul complet (mis en cache tant que rien ne change) ---------- */
@@ -119,19 +125,23 @@ function compute() {
   }
   const mediaDone = S.media.filter(m => m.status === 'done');
   const xpMedia = mediaDone.length * MEDIA_XP;
-  let xpBadges = 0, badgeBoxes = 0;
+  // Box gagnées, recalculées à partir de l'historique : petite à 5 cases, classique pour une journée parfaite…
+  const earned = { p: 0, c: 0, g: 0 };
+  const nDom = activeDomains().length, sAt = smallAt(nDom);
+  for (const k of dayKeys) {
+    if (nDom && dayCount(k) >= sAt) earned.p++;
+    if (isPerfect(k)) earned.c++;
+  }
+  let xpBadges = 0;
   const defs = badgeDefs();
-  for (const id of Object.keys(S.game.badges)) { const b = defs.find(x => x.id === id); if (b) { xpBadges += b.xp; if (b.box) badgeBoxes++; } }
+  for (const id of Object.keys(S.game.badges)) { const b = defs.find(x => x.id === id); if (b) { xpBadges += b.xp; if (b.box) earned[b.box]++; } }
 
   // Défis : toutes les semaines depuis le début
   const allKeys = [...dayKeys, ...Object.keys(S.game.visits)].sort();
-  let xpChallenges = 0, challengeBoxes = 0;
+  let xpChallenges = 0;
   if (allKeys.length) {
     for (let ws = weekStart(parseKey(allKeys[0])); ws <= t; ws = addDays(ws, 7)) {
-      const ch = weekChallenges(ws, dayXP);
-      const n = ch.filter(c => c.done).length;
-      xpChallenges += n * CHALLENGE_XP;
-      if (n === ch.length && n) challengeBoxes++;
+      for (const c of weekChallenges(ws, dayXP)) if (c.done) { xpChallenges += c.xp; earned[c.box]++; }
     }
   }
   const challenges = weekChallenges(weekStart(t), dayXP);
@@ -141,20 +151,22 @@ function compute() {
 
   // Collection : chaque box ouverte donne une famille (au premier stade) ; les doublons donnent des fragments
   const pulls = [...S.game.pulls].sort((a, b) => a.t - b.t);
-  const owned = {};
+  const owned = {}, opened = { p: new Set(), c: new Set(), g: new Set() };
   let frags = 0, since4 = 0, since5 = 0;
   for (const p of pulls) {
     if (owned[p.l]) { owned[p.l].count++; frags += FRAG[p.r] || 0; }
     else owned[p.l] = { count: 1, t: p.t };
-    since4 = p.r >= 4 ? 0 : since4 + 1;
-    since5 = p.r >= 5 ? 0 : since5 + 1;
+    // Une box ouverte = un booster (les anciennes box d'une seule carte comptent pour une)
+    opened[kindOf(p)].add(p.b || p.id);
+    if (TIERS[kindOf(p)].pity) { since4 = p.r >= 4 ? 0 : since4 + 1; since5 = p.r >= 5 ? 0 : since5 + 1; }
   }
-  frags -= S.game.trades.length * FRAG_PER_BOX;
-  // 1 box de bienvenue + 1 par niveau gagné + défis réussis + badges + échanges de fragments
-  const boxesEarned = lvl.level + challengeBoxes + badgeBoxes + S.game.trades.length;
-  // Une box ouverte = un booster (les anciennes box d'une seule carte comptent pour une)
-  const opened = new Set(pulls.map(p => p.b || p.id)).size;
-  const boxes = Math.max(0, boxesEarned - opened);
+  // Niveaux : une grande box de bienvenue, une par niveau gagné, et des bonus tous les 5 niveaux
+  for (let L = 1; L <= lvl.level; L++) for (const tier of levelRewards(L)) earned[tier]++;
+  // Échanges de fragments
+  for (const tr of S.game.trades) { earned[kindOf(tr)]++; frags -= TIERS[kindOf(tr)].cost; }
+  const boxes = { total: 0 };
+  for (const k of TIER_KEYS) { boxes[k] = Math.max(0, earned[k] - opened[k].size); boxes.total += boxes[k]; }
+  const boxesEarned = earned;
 
   // Compagnon : grandit avec l'XP des jours où il est actif, redescend après 2 jours « sans » d'affilée
   const forms = new Set(Object.keys(owned).map(l => LINES[l] ? LINES[l].base : l));
@@ -211,7 +223,7 @@ function compute() {
     dayXP, caseXPs, money, xp, lvl, title: titleOf(lvl.level),
     breakdown: { cases: xpCases, bonus: xpBonus, goals: xpGoals, media: xpMedia, badges: xpBadges, challenges: xpChallenges },
     challenges, owned, frags, since4, since5, boxes, boxesEarned, forms, companion, jokers, regressions, evolutions,
-    mediaDone,
+    mediaDone, smallAt: sAt,
   };
 }
 
@@ -224,10 +236,10 @@ export function badgeDefs() {
   if (defsCache && defsKey === k) return defsCache;
   const list = [];
   const add = (cat, id, emoji, name, desc, xp, test, box = false) => list.push({ cat, id, emoji, name, desc, xp, test, box });
-  [[3, 50], [7, 100, true], [14, 200], [30, 400, true], [60, 600], [100, 1000, true], [200, 1500], [365, 3000, true]].forEach(([n, xp, box]) =>
-    add('Séries', 'serie' + n, '🔥', `Série de ${n} jours`, `Tenir ta série ${n} jours d’affilée`, xp, c => c.best >= n, !!box));
-  [[1, 50], [5, 100], [10, 200], [25, 400, true], [50, 700], [100, 1500, true]].forEach(([n, xp, box]) =>
-    add('Journées parfaites', 'parfait' + n, '🏆', n === 1 ? 'Première journée parfaite' : `${n} journées parfaites`, `Tout cocher en une journée${n > 1 ? `, ${n} fois` : ''}`, xp, c => c.perfect >= n, !!box));
+  [[3, 50], [7, 100, 'c'], [14, 200, 'c'], [30, 400, 'g'], [60, 600, 'g'], [100, 1000, 'g'], [200, 1500, 'g'], [365, 3000, 'g']].forEach(([n, xp, box]) =>
+    add('Séries', 'serie' + n, '🔥', `Série de ${n} jours`, `Tenir ta série ${n} jours d’affilée`, xp, c => c.best >= n, box));
+  [[1, 50], [5, 100, 'c'], [10, 200, 'c'], [25, 400, 'g'], [50, 700, 'g'], [100, 1500, 'g']].forEach(([n, xp, box]) =>
+    add('Journées parfaites', 'parfait' + n, '🏆', n === 1 ? 'Première journée parfaite' : `${n} journées parfaites`, `Tout cocher en une journée${n > 1 ? `, ${n} fois` : ''}`, xp, c => c.perfect >= n, box));
   for (const d of doms) {
     add('Domaines', `dom7-${d.id}`, d.emoji, `${d.name} · 7 jours`, `${d.name} 7 jours d’affilée`, 80, c => c.domBest(d.id) >= 7);
     add('Domaines', `dom30-${d.id}`, d.emoji, `${d.name} · 30 jours`, `${d.name} 30 jours d’affilée`, 300, c => c.domBest(d.id) >= 30);
@@ -242,17 +254,17 @@ export function badgeDefs() {
   add('Connexion', 'vision', '🌅', 'Visionnaire', 'Écrire ta vision', 100, c => c.vision);
   add('Épargne', 'argent-point', '💰', 'Premier point', 'Noter le total de tes comptes', 30, c => c.moneyPoints >= 1);
   add('Épargne', 'argent-30', '📒', 'Bon gestionnaire', 'Faire le point sur ton argent 30 fois', 250, c => c.moneyPoints >= 30);
-  MONEY_STEPS.forEach((n, i) => add('Épargne', 'epargne' + n, i < 2 ? '💵' : i < 4 ? '💰' : '🏦', `${n.toLocaleString('fr-FR')} € d’épargne`, `Atteindre ${n.toLocaleString('fr-FR')} € au total`, 100 + i * 150, c => c.moneyMax >= n, i >= 2));
+  MONEY_STEPS.forEach((n, i) => add('Épargne', 'epargne' + n, i < 2 ? '💵' : i < 4 ? '💰' : '🏦', `${n.toLocaleString('fr-FR')} € d’épargne`, `Atteindre ${n.toLocaleString('fr-FR')} € au total`, 100 + i * 150, c => c.moneyMax >= n, i >= 4 ? 'g' : i >= 2 ? 'c' : false));
   add('Épargne', 'hausse', '📈', 'Ça monte !', 'Un total plus haut qu’il y a 30 jours', 150, c => c.moneyUp30);
   [[1, 30], [10, 150], [25, 300], [50, 600], [100, 1200]].forEach(([n, xp]) =>
     add('Médiathèque', 'media' + n, '🍿', n === 1 ? 'Premier terminé' : `${n} œuvres terminées`, `Terminer ${n} film${n > 1 ? 's' : ''}, livre${n > 1 ? 's' : ''}, manga${n > 1 ? 's' : ''}…`, xp, c => c.media.all >= n));
   [['film', '🎬', 'Cinéphile', 10, 'films'], ['livre', '📖', 'Rat de bibliothèque', 5, 'livres'], ['manga', '📕', 'Otaku', 10, 'mangas'], ['anime', '🍥', 'Fan d’animés', 10, 'animés'], ['serie', '📺', 'Sériephile', 5, 'séries']].forEach(([t, e, n, c, lab]) =>
     add('Médiathèque', 'm-' + t, e, n, `Terminer ${c} ${lab}`, 200, x => (x.media[t] || 0) >= c));
-  [[1, 50], [5, 200], [10, 400], [25, 1000]].forEach(([n, xp]) =>
-    add('Objectifs', 'obj' + n, '🎯', n === 1 ? 'Premier objectif atteint' : `${n} objectifs atteints`, `Atteindre ${n} objectif${n > 1 ? 's' : ''}`, xp, c => c.goalsDone >= n));
-  add('Objectifs', 'obj-an', '👑', 'Objectif de l’année', 'Atteindre un objectif d’un an', 800, c => c.yearGoal, true);
-  [[10, 100], [50, 300], [100, 600, true], [200, 1200, true]].forEach(([n, xp, box]) =>
-    add('Collection', 'coll' + n, '🎴', `${n} cartes`, `Posséder ${n} cartes différentes`, xp, c => c.forms >= n, !!box));
+  [[1, 50], [5, 200, 'c'], [10, 400, 'c'], [25, 1000, 'g']].forEach(([n, xp, box]) =>
+    add('Objectifs', 'obj' + n, '🎯', n === 1 ? 'Premier objectif atteint' : `${n} objectifs atteints`, `Atteindre ${n} objectif${n > 1 ? 's' : ''}`, xp, c => c.goalsDone >= n, box));
+  add('Objectifs', 'obj-an', '👑', 'Objectif de l’année', 'Atteindre un objectif d’un an', 800, c => c.yearGoal, 'g');
+  [[10, 100], [50, 300, 'c'], [100, 600, 'g'], [200, 1200, 'g'], [400, 2000, 'g']].forEach(([n, xp, box]) =>
+    add('Collection', 'coll' + n, '🎴', `${n} cartes`, `Posséder ${n} cartes différentes`, xp, c => c.forms >= n, box));
   add('Collection', 'first4', '💜', 'Épique !', 'Obtenir une carte 4★', 100, c => c.maxRarity >= 4);
   add('Collection', 'first5', '🌟', 'Légendaire !', 'Obtenir une carte 5★', 300, c => c.maxRarity >= 5);
   add('Collection', 'evo1', '✨', 'Première évolution', 'Faire évoluer ton compagnon', 150, c => c.evolutions >= 1);
