@@ -1,0 +1,179 @@
+// Écrans « Plus » (sur téléphone) et « Réglages » : profil, domaines, synchro, sauvegarde.
+import { S, save, touch, sync, enableSync, disableSync, syncNow, replaceAll, resetAll, COLORS } from '../store.js';
+import { ui, ico, toast, openSheet, closeSheet } from '../ui.js';
+import { esc, todayKey, uid, fmtShort } from '../util.js';
+
+export function renderMore() {
+  const item = (tab, emoji, title, sub, c) => `<button class="hub" style="--c:${c}" data-act="tab" data-tab="${tab}"><span class="hub-emoji">${emoji}</span><span><b>${title}</b><small>${sub}</small></span>${ico('chev')}</button>`;
+  return `<header class="page-head"><h1>Plus</h1></header>
+    <div class="hubs">
+      ${item('media', '🍿', 'Médiathèque', `${S.media.length} films, livres, mangas, animés, séries`, '#ff4fa3')}
+      ${item('vision', '🌅', 'Ma vision', 'Ce que je pense, qui je veux devenir', '#ff8a3d')}
+      ${item('settings', '⚙️', 'Réglages', 'Domaines, thème, synchro, sauvegarde', '#4f8cff')}
+    </div>`;
+}
+
+const ago = ts => {
+  const s = Math.round((Date.now() - ts) / 1000);
+  return s < 60 ? 'à l’instant' : s < 3600 ? `il y a ${Math.round(s / 60)} min` : s < 86400 ? `il y a ${Math.round(s / 3600)} h` : 'le ' + fmtShort(new Date(ts));
+};
+
+function syncCard() {
+  if (sync && sync.on) {
+    return `<section class="card"><h2>🔄 Synchro PC ↔ téléphone</h2>
+      <p class="muted">${sync.err ? `<span class="late">${esc(sync.err)}</span>` : `✓ Active avec <b>${esc(sync.repo)}</b> · dernière synchro ${sync.last ? ago(sync.last) : 'en cours…'}`}</p>
+      <p class="muted small">Chaque modification part toute seule quelques secondes après ; les données de tes autres appareils arrivent à chaque ouverture.</p>
+      <div class="row"><button class="btn" data-act="syncManual">${ico('sync')} Synchroniser</button><button class="btn danger ghost" data-act="syncOff">Désactiver ici</button></div></section>`;
+  }
+  return `<section class="card"><h2>🔄 Synchro PC ↔ téléphone</h2>
+    <p class="muted">Les mêmes données sur ton PC et ton téléphone, grâce à un dépôt GitHub privé. Réglage à faire une seule fois, puis tu colles la même clé sur chaque appareil.</p>
+    <ol class="steps-list">
+      <li>Ouvre <a href="https://github.com/new" target="_blank" rel="noopener">github.com/new</a> : nom <b>tableau-donnees</b>, coche <b>Private</b>, puis <b>Create repository</b>. <span class="muted">(Déjà fait pour l’ancienne version ? Réutilise-le.)</span></li>
+      <li>Ouvre <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a>.</li>
+      <li>Nom : <i>Tableau de bord</i>. Expiration : la plus longue. <b>Repository access</b> : <i>Only select repositories</i> → <b>tableau-donnees</b>.</li>
+      <li><b>Permissions</b> → <b>Contents</b> : <i>Read and write</i>. Puis <b>Generate token</b> et copie la clé (<code>github_pat_…</code>).</li>
+      <li>Colle-la ci-dessous sur ton PC, puis sur ton téléphone.</li>
+    </ol>
+    <form data-form="sync" class="form"><div class="grid2">
+      <label class="f">Dépôt<input name="repo" placeholder="ton-pseudo/tableau-donnees" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(sync && sync.repo || '')}"></label>
+      <label class="f">Clé GitHub<input type="password" name="token" placeholder="github_pat_…" autocomplete="off" value="${esc(sync && sync.token || '')}"></label></div>
+      ${sync && sync.err ? `<p class="late small">${esc(sync.err)}</p>` : ''}
+      <div class="row"><button class="btn primary">Activer la synchro</button></div></form>
+    <p class="muted small">La clé reste uniquement sur cet appareil et n’ouvre que ce dépôt.</p></section>`;
+}
+
+function domainsCard() {
+  const list = S.domains.list, act = list.filter(d => !d.archived), arch = list.filter(d => d.archived);
+  const row = (d, i) => `<div class="dom-row" style="--c:${d.color}"><span class="dom-emoji">${d.emoji}</span><span class="dom-name">${esc(d.name)}<small>${esc(d.hint || '')}</small></span>
+    ${d.archived ? `<button class="btn sm" data-act="domRestore" data-id="${d.id}">Remettre</button>` : `
+    <button class="icon-btn" data-act="domMove" data-id="${d.id}" data-d="-1" ${i === 0 ? 'disabled' : ''} aria-label="Monter">${ico('up')}</button>
+    <button class="icon-btn" data-act="domMove" data-id="${d.id}" data-d="1" ${i === act.length - 1 ? 'disabled' : ''} aria-label="Descendre">${ico('down')}</button>
+    <button class="icon-btn" data-act="domEdit" data-id="${d.id}" aria-label="Modifier">${ico('edit')}</button>`}</div>`;
+  return `<section class="card"><div class="c-head"><h2>🧩 Mes domaines</h2><span class="muted small">${act.length} cases par jour</span></div>
+    ${act.map(row).join('')}
+    <button class="btn ghost full" data-act="domNew">${ico('plus')} Ajouter un domaine</button>
+    ${arch.length ? `<p class="eyebrow" style="margin-top:14px">Masqués (historique conservé)</p>${arch.map(row).join('')}` : ''}</section>`;
+}
+
+export function render() {
+  const th = S.settings.theme || 'auto', thr = Math.round((S.settings.threshold || 0.5) * 100);
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const install = standalone ? '<p class="muted">✓ Tu utilises l’appli installée. Elle marche aussi sans internet.</p>'
+    : ui.install ? '<p class="muted">Installe la page comme une appli : icône sur l’écran d’accueil, plein écran, hors ligne.</p><div class="row"><button class="btn primary" data-act="installApp">Installer l’appli</button></div>'
+    : ios ? '<p class="muted">Dans Safari : bouton <b>Partager</b> → <b>Sur l’écran d’accueil</b>. L’appli s’ouvrira en plein écran et marchera hors ligne.</p>'
+    : '<p class="muted">Dans Chrome : menu <b>⋮</b> → <b>Installer l’application</b> (ou « Ajouter à l’écran d’accueil »).</p>';
+  return `<header class="page-head"><h1>Réglages</h1></header>
+    <div class="two">
+    <div>
+    <section class="card"><h2>👤 Profil</h2>
+      <label class="f">Prénom<input data-input="name" maxlength="30" value="${esc(S.profile.name)}"></label>
+      <div class="f"><span>Thème</span><div class="segs">${[['auto', '🌗 Auto'], ['light', '☀️ Clair'], ['dark', '🌙 Sombre']].map(([id, l]) => `<button class="seg ${th === id ? 'on' : ''}" data-act="theme" data-t="${id}">${l}</button>`).join('')}</div></div>
+      <label class="f">Une journée compte pour la série 🔥 à partir de <b>${thr} %</b> des cases
+        <input type="range" min="10" max="100" step="10" value="${thr}" data-input="threshold"></label>
+    </section>
+    ${domainsCard()}
+    </div><div>
+    ${syncCard()}
+    <section class="card"><h2>📱 Appli</h2>${install}</section>
+    <section class="card"><h2>💾 Sauvegarde</h2>
+      <p class="muted">${sync && sync.on ? 'Avec la synchro, tout est déjà sauvegardé dans ton dépôt GitHub. Tu peux aussi exporter un fichier.' : 'Sans synchro, tout est enregistré dans ce navigateur, sur cet appareil uniquement. Exporte une sauvegarde de temps en temps.'}</p>
+      <div class="row"><button class="btn" data-act="exportData">Exporter</button><button class="btn" data-act="importData">Importer</button></div></section>
+    <section class="card"><h2>🧨 Repartir de zéro</h2><p class="muted">Efface toutes les cases, objectifs, médiathèque, vision et progression du jeu.</p>
+      <div class="row"><button class="btn danger" data-act="resetData">Tout effacer</button></div></section>
+    </div></div>`;
+}
+
+const EMOJI_IDEAS = ['🎓', '♟️', '🏃', '💰', '📚', '🥗', '🧘', '😴', '📵', '🙅', '💧', '🎸', '🗣️', '🧹', '🙏', '✍️', '🎨', '💻', '🚭', '🌳'];
+export function sheet(s) {
+  const d = s.id ? S.domains.list.find(x => x.id === s.id) : null;
+  const v = d || { name: '', emoji: '⭐', hint: '', color: COLORS[S.domains.list.length % COLORS.length] };
+  return `<form class="form" data-form="domain">
+    <h2>${d ? 'Modifier le domaine' : 'Nouveau domaine'}</h2>
+    <div class="grid2 emoji-name"><label class="f">Emoji<input name="emoji" class="emoji-in" maxlength="8" value="${esc(v.emoji)}" required></label>
+      <label class="f">Nom<input name="name" maxlength="30" required value="${esc(v.name)}" placeholder="Ex. Boire 2 L d’eau"></label></div>
+    <div class="emoji-ideas">${EMOJI_IDEAS.map(e => `<button type="button" data-act="pickEmoji" data-e="${e}">${e}</button>`).join('')}</div>
+    <label class="f">Petite phrase <small>(facultatif)</small><input name="hint" maxlength="50" value="${esc(v.hint)}" placeholder="Ce qui compte comme « fait »"></label>
+    <div class="f"><span>Couleur</span><div class="colors">${COLORS.map(c => `<label style="--c:${c}"><input type="radio" name="color" value="${c}" ${v.color === c ? 'checked' : ''}><span></span></label>`).join('')}</div></div>
+    <div class="row"><button class="btn primary">${d ? 'Enregistrer' : 'Ajouter'}</button>
+      ${d ? `<button type="button" class="btn danger ghost" data-act="domArchive" data-id="${d.id}">Masquer ce domaine</button>` : ''}</div>
+  </form>`;
+}
+
+async function exportData() {
+  const name = `tableau-de-bord-${todayKey()}.json`;
+  const blob = new Blob([JSON.stringify(S)], { type: 'application/json' });
+  // Sur téléphone, le téléchargement direct ne marche pas toujours : on passe par le menu de partage
+  if (/iphone|ipad|ipod|android/i.test(navigator.userAgent) && navigator.canShare) {
+    const file = new File([blob], name, { type: 'application/json' });
+    if (navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: 'Sauvegarde du tableau de bord' }); return; }
+      catch (e) { if (e.name === 'AbortError') return; }
+    }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+export function importFile(file) {
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result);
+      if (!d || d.v !== 2 || typeof d.days !== 'object') throw 0;
+      if (!confirm('Remplacer les données actuelles par cette sauvegarde ?')) return;
+      replaceAll(d); toast('Sauvegarde restaurée');
+    } catch (e) { toast('Ce fichier n’est pas une sauvegarde valide'); }
+  };
+  r.readAsText(file);
+}
+
+const dom = id => S.domains.list.find(d => d.id === id);
+const domSave = () => { touch(S.domains); save(); };
+export const actions = {
+  theme(el) { S.settings.theme = el.dataset.t; touch(S.settings); save(); },
+  domNew() { openSheet({ kind: 'domain' }); },
+  domEdit(el) { openSheet({ kind: 'domain', id: el.dataset.id }); },
+  domMove(el) {
+    const act = S.domains.list.filter(d => !d.archived), i = act.findIndex(d => d.id === el.dataset.id), j = i + Number(el.dataset.d);
+    if (j < 0 || j >= act.length) return;
+    [act[i], act[j]] = [act[j], act[i]];
+    S.domains.list = act.concat(S.domains.list.filter(d => d.archived));
+    domSave();
+  },
+  domArchive(el) { const d = dom(el.dataset.id); d.archived = true; closeSheet(); domSave(); toast(`${d.emoji} ${d.name} masqué`); },
+  domRestore(el) { dom(el.dataset.id).archived = false; domSave(); },
+  pickEmoji(el) { const i = el.form && el.form.emoji; if (i) i.value = el.dataset.e; },
+  syncManual() { syncNow().then(() => toast(sync && sync.err ? sync.err : 'Synchro faite ✓')); },
+  syncOff() { if (confirm('Désactiver la synchro sur cet appareil ? Tes données restent ici et sur GitHub.')) disableSync(); },
+  installApp() { if (ui.install) { ui.install.prompt(); ui.install = null; } },
+  exportData() { exportData(); },
+  importData() { document.getElementById('importFile').click(); },
+  resetData() {
+    if (!confirm('Tout effacer ? Cette action est définitive (sauf si tu as une sauvegarde).')) return;
+    if (!confirm('Vraiment sûr ? Toute ta progression sera perdue.')) return;
+    resetAll(); toast('Tout est effacé. Nouveau départ 🚀');
+  },
+};
+export const inputs = {
+  name(el) { S.profile.name = el.value.trim(); touch(S.profile); save(); },
+  threshold(el) { S.settings.threshold = Number(el.value) / 100; touch(S.settings); save(); },
+};
+export const forms = {
+  domain(f) {
+    const d = ui.sheet.id ? dom(ui.sheet.id) : null;
+    const v = { name: (f.name || '').trim(), emoji: (f.emoji || '⭐').trim(), hint: (f.hint || '').trim(), color: f.color || COLORS[0] };
+    if (!v.name) return false;
+    if (d) Object.assign(d, v);
+    else S.domains.list.splice(S.domains.list.filter(x => !x.archived).length, 0, { id: uid(), archived: false, ...v });
+    ui.sheet = null; domSave(); toast(d ? 'Domaine modifié' : `${v.emoji} ${v.name} ajouté`);
+  },
+  sync(f) {
+    const repo = (f.repo || '').trim().replace(/^https?:\/\/github\.com\//, '').replace(/\/+$/, ''), token = (f.token || '').trim();
+    if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) { toast('Le dépôt doit ressembler à pseudo/tableau-donnees'); return false; }
+    if (!token) { toast('Colle ta clé GitHub'); return false; }
+    toast('Connexion à GitHub…');
+    enableSync(repo, token).then(() => toast(sync && sync.err ? sync.err : 'Synchro activée ✓'));
+  },
+};
