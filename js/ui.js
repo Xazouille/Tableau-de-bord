@@ -24,6 +24,64 @@ export const rerender = () => renderFn();
 export function openSheet(sheet) { ui.sheet = sheet; rerender(); }
 export function closeSheet() { ui.sheet = null; rerender(); }
 
+// Bouton « retour » du téléphone : tant qu'une fenêtre est ouverte (fiche ou animation), l'historique a une entrée en plus.
+// Le retour ferme la fenêtre du dessus au lieu de quitter l'appli. Un history.back() est asynchrone : on attend
+// qu'il soit terminé avant d'ajouter une nouvelle entrée, sinon l'historique se décale et un retour fait sortir de l'appli.
+let modals = 0, hasEntry = false, backing = false, backHandler = () => {};
+export const setBackHandler = fn => { backHandler = fn; };
+export function pushModal() { modals++; syncHistory(); }
+export function popModal() { if (modals > 0) modals--; syncHistory(); }
+function syncHistory() {
+  if (backing) return;
+  try {
+    if (modals > 0 && !hasEntry) { history.pushState({ lvModal: 1 }, ''); hasEntry = true; }
+    else if (!modals && hasEntry) { hasEntry = false; backing = true; history.back(); }
+  } catch (e) { backing = false; }
+}
+addEventListener('popstate', () => {
+  if (backing) { backing = false; syncHistory(); return; }
+  if (!hasEntry) return;
+  hasEntry = false;
+  backHandler();
+  syncHistory();
+});
+
+// Bannières de récompense qui glissent depuis le haut (badge, box gagnée, journée parfaite…)
+// Elles attendent la fin d'une invocation pour ne rien gâcher, et sautent celles devenues inutiles (b.still)
+const banners = [];
+let bannerOn = false, held = false;
+export function banner(b) {
+  banners.push(b);
+  if (!bannerOn) nextBanner();
+}
+export function holdBanners(on) {
+  held = on;
+  if (!on && !bannerOn) nextBanner();
+}
+function nextBanner() {
+  let b = banners.shift();
+  while (b && b.still && !b.still()) b = banners.shift();
+  if (!b || held) { if (b) banners.unshift(b); bannerOn = false; return; }
+  bannerOn = true;
+  let root = document.getElementById('banners');
+  if (!root) { root = document.createElement('div'); root.id = 'banners'; document.body.appendChild(root); }
+  const el = document.createElement('button');
+  el.className = 'ban ' + (b.cls || '');
+  el.style.setProperty('--bc', b.color || '#9b6bff');
+  el.innerHTML = `<span class="ban-ico">${b.icon || '🎉'}</span><span class="ban-txt"><b>${esc(b.title)}</b>${b.sub ? `<small>${esc(b.sub)}</small>` : ''}</span><span class="ban-shine"></span>`;
+  let done = false;
+  const hide = () => {
+    if (done) return;
+    done = true;
+    el.classList.remove('in');
+    setTimeout(() => { el.remove(); nextBanner(); }, 320);
+  };
+  el.addEventListener('click', () => { if (b.onTap) b.onTap(); hide(); });
+  root.appendChild(el);
+  requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('in')));
+  setTimeout(hide, b.ms || 3400);
+}
+
 let toastTimer;
 export function toast(msg) {
   const t = document.getElementById('toast');
