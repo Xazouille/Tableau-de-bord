@@ -22,7 +22,10 @@ export function makeDemo() {
       if (dom.m.kind === 'list') x[dom.id] = dom.m.items.map((_, j) => j).filter(() => rnd() < 0.7);
       if (dom.m.kind === 'money') { money = Math.round(money + (rnd() - 0.3) * 60); x[dom.id] = money; }
     }
-    d.days[k] = { c, x, note: i % 5 === 0 ? NOTES[i % NOTES.length] : '', u: 1 };
+    // Humeur : meilleure les jours bien remplis (pas notée tous les jours)
+    const ratio = Object.keys(c).length / d.domains.list.length;
+    const mood = rnd() < 0.8 ? Math.max(1, Math.min(5, Math.round(1.2 + 3.6 * ratio + (rnd() - 0.5) * 1.6))) : 0;
+    d.days[k] = Object.assign({ c, x, note: i % 5 === 0 ? NOTES[i % NOTES.length] : '', u: 1 }, mood ? { mood } : {});
     d.game.visits[k] = 1;
   }
   const ago = n => key(addDays(t, -n)), soon = n => key(addDays(t, n));
@@ -41,7 +44,18 @@ export function makeDemo() {
   d.vision.blocks[0].text = 'Je veux devenir quelqu’un de discipliné, qui tient ses promesses envers lui-même.\nObtenir mon DCG et être fier du chemin parcouru.';
   d.vision.blocks[1].text = 'La régularité bat le talent. Chaque petite victoire compte.';
   // Une carte de chaque famille (ouvertes dans une seule « box » pour laisser des box à ouvrir), toutes les évolutions visibles
-  d.game.pulls = Object.values(LINES).map((l, i) => ({ id: uid(), b: 'demo', l: l.id, r: l.rarity, t: i + 1 }));
+  const lines = Object.values(LINES);
+  d.game.pulls = lines.map((l, i) => Object.assign({ id: uid(), b: 'demo', l: l.id, r: l.rarity, t: i + 1 }, i % 37 === 0 ? { s: 1 } : {}));
+  // Des doublons à fusionner ou échanger, quelques brillantes, et deux cartes déjà éveillées
+  for (let i = 0; i < 120; i++) { const l = lines[Math.floor(rnd() * lines.length)]; d.game.pulls.push(Object.assign({ id: uid(), b: 'demo2', l: l.id, r: l.rarity, t: 5000 + i }, i % 15 === 0 ? { s: 1 } : {})); }
+  const fused = [['na-itachi', 9], ['db-goku', 4], ['on-luffy', 3]].filter(([l]) => LINES[l]);
+  for (const [l, n] of fused) for (let i = 0; i < n; i++) d.game.pulls.push({ id: uid(), b: 'demo3', l, r: LINES[l].rarity, t: 6000 + i });
+  // Une carte prête à fusionner (4 doublons)
+  if (LINES['na-kakashi']) for (let i = 0; i < 4; i++) d.game.pulls.push({ id: uid(), b: 'demo3', l: 'na-kakashi', r: LINES['na-kakashi'].rarity, t: 6500 + i });
+  d.game.fusions = fused.filter(([, n]) => n >= 3).flatMap(([l, n], j) => [{ id: uid(), l, lv: 1, t: 7000 + j * 2 }].concat(n >= 8 ? [{ id: uid(), l, lv: 2, t: 7001 + j * 2 }] : []));
+  d.game.dupFrom = 0;
+  // Boss, bilans et rangs de maîtrise depuis le début de la démo
+  d.game.since = key(start);
   d.game.unlockAll = true;
   const comp = LINES['db-gohan-namek'] ? 'db-gohan-namek' : Object.keys(LINES)[0];
   d.game.comp = [{ id: uid(), line: 'pk390', from: ago(90), t: 1 }, { id: uid(), line: comp, from: ago(30), t: 2 }]

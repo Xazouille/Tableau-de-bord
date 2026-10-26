@@ -93,15 +93,39 @@ export function implode(x, y, color, n = 24) {
 }
 export const buzz = (p = 12) => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
 
-// Texte qui s'envole au-dessus d'un élément (« +15 XP »)
-export function floatText(el, text) {
+// Texte qui s'envole au-dessus d'un élément (« +15 XP », « ⚔️ −30 » pour les dégâts au boss)
+export function floatText(el, text, cls = '') {
   if (!el) return;
-  const r = el.getBoundingClientRect();
+  const r = el.getBoundingClientRect(), dmg = cls === 'dmg';
   const t = document.createElement('div');
-  t.className = 'float-xp';
+  t.className = 'float-xp ' + cls;
   t.textContent = text;
-  t.style.left = r.left + r.width / 2 + 'px';
-  t.style.top = r.top + 10 + 'px';
+  t.style.left = r.left + r.width * (dmg ? 0.72 : 0.5) + 'px';
+  t.style.top = r.top + (dmg ? 34 : 10) + 'px';
+  if (dmg) t.style.animationDelay = '.18s';
   document.body.appendChild(t);
-  setTimeout(() => t.remove(), 1200);
+  setTimeout(() => t.remove(), 1500);
+}
+
+// Bulle de dialogue au-dessus (ou en dessous) d'un élément : le compagnon parle
+let bubble = null, bubbleTimer = 0;
+export function speech(el, text) {
+  if (!el) return;
+  if (bubble) bubble.remove();
+  const r = el.getBoundingClientRect(), b = document.createElement('div');
+  b.className = 'speech';
+  b.textContent = text;
+  b.style.maxWidth = Math.min(270, innerWidth - 24) + 'px';
+  document.body.appendChild(b);
+  const bw = b.offsetWidth, cx = r.left + r.width / 2;
+  const x = Math.max(12, Math.min(innerWidth - bw - 12, cx - bw / 2));
+  const above = r.top > b.offsetHeight + 30;
+  b.style.left = x + 'px';
+  b.style.top = (above ? r.top - b.offsetHeight - 12 : r.bottom + 12) + 'px';
+  b.style.setProperty('--tx', Math.max(16, Math.min(bw - 16, cx - x)) + 'px');
+  b.classList.add(above ? 'above' : 'below');
+  requestAnimationFrame(() => b.classList.add('in'));
+  bubble = b;
+  clearTimeout(bubbleTimer);
+  bubbleTimer = setTimeout(() => { b.classList.remove('in'); setTimeout(() => b.remove(), 300); if (bubble === b) bubble = null; }, 3800);
 }

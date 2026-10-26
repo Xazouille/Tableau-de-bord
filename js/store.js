@@ -48,7 +48,8 @@ export function defaults() {
     goals: [],
     media: [],
     vision: { blocks: DEFAULT_VISION.map(b => ({ ...b })), u: 0 },
-    game: { pulls: [], trades: [], visits: {}, badges: {}, jokerDays: {}, comp: [], rewards: [], u: 0 },
+    // since : début des boss, bilans et rangs de maîtrise récompensés ; dupFrom : avant cette heure, les doublons devenaient des fragments tout seuls
+    game: { pulls: [], trades: [], fusions: [], recycles: [], visits: {}, badges: {}, jokerDays: {}, comp: [], rewards: [], since: todayKey(), dupFrom: Date.now(), u: 0 },
     dead: {},
   };
 }
@@ -68,7 +69,9 @@ function normalize(d) {
     if (!d.m) d.m = PRESETS[d.id] || { kind: 'none' };
   }
   const g = o.game;
-  for (const k of ['pulls', 'trades', 'comp', 'rewards']) if (!Array.isArray(g[k])) g[k] = [];
+  for (const k of ['pulls', 'trades', 'fusions', 'recycles', 'comp', 'rewards']) if (!Array.isArray(g[k])) g[k] = [];
+  if (typeof g.since !== 'string') g.since = todayKey();
+  if (typeof g.dupFrom !== 'number') g.dupFrom = Date.now();
   for (const k of ['visits', 'badges', 'jokerDays']) if (!g[k] || typeof g[k] !== 'object' || Array.isArray(g[k])) g[k] = {};
   return o;
 }
@@ -133,6 +136,13 @@ export function setNote(k, note) {
   stamp(day, '_note');
   S.days[k] = touch(day);
 }
+// Humeur du jour : de 1 (😞) à 5 (😄), 0 pour l'effacer
+export function setMood(k, v) {
+  const day = S.days[k] || { c: {}, note: '' };
+  if (v) day.mood = v; else delete day.mood;
+  stamp(day, '_mood');
+  S.days[k] = touch(day);
+}
 export const activeDomains = () => S.domains.list.filter(d => !d.archived);
 
 /* ---------- Listes (objectifs, médiathèque) ---------- */
@@ -177,7 +187,7 @@ function mergeDay(a, b) {
   const ts = (d, id) => d.t ? (d.t[id] || 0) : (d.u || 0);
   const out = { c: {}, x: {}, note: '', t: {}, u: Math.max(a.u || 0, b.u || 0) };
   const ids = new Set([a, b].flatMap(d => [...Object.keys(d.c || {}), ...Object.keys(d.x || {}), ...Object.keys(d.t || {})]));
-  ids.delete('_note');
+  ids.delete('_note'); ids.delete('_mood');
   for (const id of ids) {
     const ta = ts(a, id), tb = ts(b, id);
     // À égalité, la case cochée l'emporte
@@ -189,6 +199,9 @@ function mergeDay(a, b) {
   const nb = ts(b, '_note') > ts(a, '_note');
   out.note = (nb ? b.note : a.note) || '';
   out.t._note = Math.max(ts(a, '_note'), ts(b, '_note'));
+  const mood = ts(b, '_mood') > ts(a, '_mood') ? b.mood : a.mood, tm = Math.max(ts(a, '_mood'), ts(b, '_mood'));
+  if (mood) out.mood = mood;
+  if (tm) out.t._mood = tm;
   return out;
 }
 
@@ -201,6 +214,8 @@ function mergeGame(a, b, dead) {
   return {
     ...a,
     pulls: byId(a.pulls, b.pulls), trades: byId(a.trades, b.trades), comp: byId(a.comp, b.comp),
+    fusions: byId(a.fusions, b.fusions), recycles: byId(a.recycles, b.recycles),
+    since: a.since < b.since ? a.since : b.since, dupFrom: Math.min(a.dupFrom, b.dupFrom),
     visits: { ...a.visits, ...b.visits }, jokerDays: { ...a.jokerDays, ...b.jokerDays }, badges,
     rewards: newerById(a.rewards, b.rewards).filter(r => !(dead[r.id] >= (r.u || 0))),
     u: Math.max(a.u || 0, b.u || 0),

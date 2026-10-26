@@ -1,13 +1,19 @@
 // Point d'entrée : affichage des écrans, navigation et gestion des clics / saisies.
 import morphdom from './vendor/morphdom.js';
-import { S, onChange, storageOK, sync, syncNow, save, touch, DEMO, setDemo, replaceAll, leaving } from './store.js';
+import { S, onChange, storageOK, sync, syncNow, save, touch, DEMO, setDemo, replaceAll, leaving, activeDomains } from './store.js';
 import { ui, setRender, setPref, pref, closeSheet, ico, pushModal, popModal, setBackHandler, banner } from './ui.js';
 import { makeDemo } from './demo.js';
 import { G, awardBadges } from './game/rules.js';
-import { showLevelUp, overlayOpen, requestClose, startBox } from './game/opening.js';
+import { showLevelUp, overlayOpen, requestClose, startBox, showBossKO, showRecap } from './game/opening.js';
 import { chestHTML } from './game/gacha.js';
 import { TIERS, TIER_KEYS, levelRewards } from './game/tiers.js';
-import { todayKey, dayDiff } from './util.js';
+import { RANKS, rankOf } from './game/mastery.js';
+import { records, recapReady, weekRecap } from './game/weekly.js';
+import { worn, applyLook } from './game/cosmetics.js';
+import { globalBest, domainBest } from './stats.js';
+import { confetti } from './fx.js';
+import { todayKey, dayDiff, key, today as todayD, addDays, weekStart } from './util.js';
+import { fmtMoney } from './measures.js';
 import * as today from './views/today.js';
 import * as stats from './views/stats.js';
 import * as game from './views/game.js';
@@ -17,10 +23,11 @@ import * as vision from './views/vision.js';
 import * as settings from './views/settings.js';
 
 const VIEWS = { today, stats, game, goals, media, vision, settings, more: { render: settings.renderMore } };
-const SHEETS = { goal: goals.sheet, media: media.sheet, domain: settings.sheet, measure: today.sheet, card: game.sheet, odds: game.oddsSheet, shop: game.shopSheet };
+const SHEETS = { goal: goals.sheet, media: media.sheet, domain: settings.sheet, measure: today.sheet, card: game.sheet, odds: game.oddsSheet, shop: game.shopSheet, boss: game.bossSheet, look: game.lookSheet };
 const MODULES = [today, stats, game, goals, media, vision, settings];
 const actions = Object.assign({}, ...MODULES.map(m => m.actions || {}), {
   tab(el) {
+    if (ui.tab !== el.dataset.tab) ui.collNewSince = null;
     ui.tab = el.dataset.tab; setPref('tab', ui.tab);
     ui.visionEdit = false; ui.sheet = null;
     if (ui.tab === 'today') ui.day = todayKey();
@@ -52,6 +59,7 @@ function render() {
 
   const th = S.settings.theme;
   if (th === 'light' || th === 'dark') document.documentElement.dataset.theme = th; else delete document.documentElement.dataset.theme;
+  applyLook(worn(G()).theme);
   const navTab = ['media', 'vision', 'settings'].includes(ui.tab) ? 'more' : ui.tab;
   document.querySelectorAll('nav.tabs [data-tab]').forEach(b => {
     const on = b.dataset.tab === ui.tab || (b.classList.contains('m-only') && b.dataset.tab === navTab);
@@ -130,8 +138,87 @@ function checkProgress() {
       }
     }
     if (!seen || TIER_KEYS.some(k => earned[k] !== seen[k])) setPref('seenBoxes', JSON.stringify(earned));
+
+    announceRecords(g);
+    announceMastery(g);
+    announceAlbums(g);
+    announceBoss(g);
+
+    // Un seul grand écran à la fois : boss vaincu, puis bilan de la semaine
+    if (overlayOpen() || ui.sheet) return;
+    const hist = g.boss.history, bSeen = pref('bossSeen');
+    if (bSeen == null || Number(bSeen) > hist.length) setPref('bossSeen', hist.length);
+    else if (hist.length > Number(bSeen)) {
+      const fresh = hist.slice(Number(bSeen));
+      setPref('bossSeen', hist.length);
+      fresh.filter(b => !b.won).forEach(b => banner({ icon: '💨', title: `${b.name} s’est enfui…`, sub: 'Il reviendra plus tard. Un nouveau boss t’attend !', color: '#64748b' }));
+      const won = fresh.filter(b => b.won);
+      if (won.length) { showBossKO(won[won.length - 1]); return; }
+    }
+    const ws = recapReady(weekStart(todayD())) ? weekStart(todayD()) : addDays(weekStart(todayD()), -7), wk = key(ws);
+    if (pref('recapSeen') !== wk) {
+      setPref('recapSeen', wk);
+      if (key(addDays(ws, 6)) >= S.game.since) showRecap({ ...weekRecap(ws, g), live: wk === key(weekStart(todayD())) });
+    }
   } catch (e) { console.error(e); }
   finally { checking = false; }
+}
+
+// Records battus : meilleure journée, meilleure semaine, plus longues séries, plus gros total d'argent
+function announceRecords(g) {
+  const rec = records(g), tk = todayKey(), wk = key(weekStart(todayD()));
+  const cur = { day: rec.day.v, week: rec.week.v, streak: globalBest(), money: rec.money.v, dom: {} };
+  for (const d of activeDomains()) cur.dom[d.id] = domainBest(d.id);
+  let rs = null;
+  try { rs = JSON.parse(pref('records')); } catch (e) {}
+  if (!rs) { setPref('records', JSON.stringify({ ...cur, dayK: '', weekK: '' })); return; }
+  const out = { ...rs, dom: { ...(rs.dom || {}) } }, ban = (icon, title, sub) => banner({ icon, title, sub, color: '#f59e0b', cls: 'gold-ban' });
+  const enough = Object.keys(S.days).length >= 14;
+  if (cur.day > rs.day) { if (enough && rec.day.k === tk && rs.dayK !== tk) { ban('🏆', 'Record : ta meilleure journée !', `${cur.day} XP aujourd’hui`); out.dayK = tk; } out.day = cur.day; }
+  if (cur.week > rs.week) { if (enough && rec.week.k === wk && rs.weekK !== wk) { ban('📈', 'Record : ta meilleure semaine !', `${cur.week.toLocaleString('fr-FR')} XP cette semaine`); out.weekK = wk; } out.week = cur.week; }
+  if (cur.streak > rs.streak) { if (cur.streak >= 3) ban('🔥', `Record de série : ${cur.streak} jours !`, 'Tu n’as jamais tenu aussi longtemps'); out.streak = cur.streak; }
+  for (const d of activeDomains()) {
+    const n = cur.dom[d.id], was = rs.dom ? rs.dom[d.id] : undefined;
+    if (was !== undefined && n > was && n >= 5) ban(d.emoji, `Record : ${d.name} ${n} jours d’affilée !`, 'Ta plus longue série dans ce domaine');
+    out.dom[d.id] = Math.max(n, was || 0);
+  }
+  if (cur.money > rs.money) { if (rs.money > 0) ban('💰', 'Record d’épargne !', `${fmtMoney(cur.money)} au total`); out.money = cur.money; }
+  if (JSON.stringify(out) !== JSON.stringify(rs)) setPref('records', JSON.stringify(out));
+}
+
+// Maîtrise : un niveau de plus dans un domaine, ou un nouveau rang (grande box)
+function announceMastery(g) {
+  const lv = {};
+  for (const [id, m] of Object.entries(g.mastery)) lv[id] = m.level;
+  let ms = null;
+  try { ms = JSON.parse(pref('mastery')); } catch (e) {}
+  if (ms) for (const d of activeDomains()) {
+    const m = g.mastery[d.id];
+    if (!m || !ms[d.id] || m.level <= ms[d.id]) continue;
+    const up = m.rank > rankOf(ms[d.id]);
+    banner({ icon: d.emoji, title: up ? `Nouveau rang : ${RANKS[m.rank][0]} ${RANKS[m.rank][2]}` : `${d.name} · niveau ${m.level}`,
+      sub: up ? `${d.name} niveau ${m.level} · grande box gagnée !` : `Maîtrise ${RANKS[m.rank][0]} · ${m.need - m.into} pts avant le niveau ${m.level + 1}`, color: RANKS[m.rank][1], cls: up ? 'gold-ban' : '' });
+    if (up) setTimeout(() => confetti(140), 300);
+  }
+  if (!ms || Object.keys(lv).some(id => lv[id] !== ms[id])) setPref('mastery', JSON.stringify(lv));
+}
+
+function announceAlbums(g) {
+  const done = g.albums.filter(a => a.done).map(a => a.id);
+  let al = null;
+  try { al = JSON.parse(pref('albums')); } catch (e) {}
+  if (al) for (const a of g.albums) if (a.done && !al.includes(a.id)) banner({ icon: a.emoji, title: `Album complété : ${a.name} !`, sub: `Grande box + titre « ${a.title} »`, color: '#f59e0b', cls: 'gold-ban' });
+  if (!al || done.length !== al.length) setPref('albums', JSON.stringify(done));
+}
+
+// Nouveau boss en vue
+function announceBoss(g) {
+  const b = g.boss.current;
+  if (!b || pref('bossCur') === String(b.n)) return;
+  setPref('bossCur', b.n);
+  const wd = S.domains.list.find(d => d.id === b.weak);
+  banner({ icon: b.legendary ? '🐉' : '⚔️', title: `${b.legendary ? 'Boss légendaire' : 'Nouveau boss'} : ${b.name} !`, sub: `${b.hp.toLocaleString('fr-FR')} PV · point faible ${wd ? wd.emoji + ' ' + wd.name : ''} · 7 jours pour le battre`,
+    color: b.legendary ? '#f59e0b' : '#ef4444', onTap: () => { ui.sheet = { kind: 'boss' }; render(); } });
 }
 setRender(render);
 onChange(render);

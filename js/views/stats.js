@@ -3,6 +3,11 @@ import { S, activeDomains, isDone } from '../store.js';
 import { dayCount, isPerfect, isJoker, globalStreak, globalBest, domainStreak, domainBest, domainRate, periodScore, weekScore, monthScore, totalChecks } from '../stats.js';
 import { ui, empty } from '../ui.js';
 import { G } from '../game/rules.js';
+import { RANKS } from '../game/mastery.js';
+import { records, weekRecap, recapReady } from '../game/weekly.js';
+import { showRecap } from '../game/opening.js';
+import { insights, moodSeries, NEEDED_DAYS } from '../insights.js';
+import { MOODS } from './today.js';
 import { fmtMoney } from '../measures.js';
 import { key, today, addDays, weekStart, parseKey, fmtLong, fmtShort, esc, MONTHS_SHORT, plural, todayKey } from '../util.js';
 
@@ -62,11 +67,12 @@ function weeksChart() {
 }
 
 function domainsCard() {
+  const g = G();
   const rows = activeDomains().map(d => {
-    const s = domainStreak(d.id), b = domainBest(d.id), r = domainRate(d.id, 30);
+    const s = domainStreak(d.id), b = domainBest(d.id), r = domainRate(d.id, 30), m = g.mastery[d.id];
     return `<div class="d-row" style="--c:${d.color}">
       <span class="d-emoji">${d.emoji}</span>
-      <div class="d-main"><div class="d-top"><b>${esc(d.name)}</b><span class="d-nums"><span class="${s.n ? 'fire' : 'muted'}">🔥 ${s.n}</span><span class="muted">🏆 ${b}</span></span></div>
+      <div class="d-main"><div class="d-top"><b>${esc(d.name)}${m ? ` <span class="d-ms" style="--rk:${RANKS[m.rank][1]}">niv. ${m.level}</span>` : ''}</b><span class="d-nums"><span class="${s.n ? 'fire' : 'muted'}">🔥 ${s.n}</span><span class="muted">🏆 ${b}</span></span></div>
         <div class="d-bar"><span style="width:${r}%"></span></div><span class="muted small">${r} % des 30 derniers jours</span></div>
     </div>`;
   }).join('');
@@ -131,6 +137,35 @@ function journal() {
     ${notes.length ? `<ul class="journal">${list}</ul>${notes.length > shown.length ? '<button class="btn ghost full" data-act="journalAll">Tout afficher</button>' : ''}` : '<p class="muted">Tes phrases du jour apparaîtront ici.</p>'}</section>`;
 }
 
+// Records personnels
+function recordsCard() {
+  const g = G(), r = records(g), best = globalBest();
+  const doms = activeDomains().map(d => ({ d, n: domainBest(d.id) })).filter(x => x.n >= 2).sort((a, b) => b.n - a.n).slice(0, 3);
+  const rows = [
+    r.day.v ? ['⚡', 'Meilleure journée', `${r.day.v} XP`, fmtShort(parseKey(r.day.k))] : null,
+    r.week.v ? ['📈', 'Meilleure semaine', `${r.week.v.toLocaleString('fr-FR')} XP`, `sem. du ${fmtShort(parseKey(r.week.k))}`] : null,
+    best ? ['🔥', 'Plus longue série', plural(best, 'jour', 'jours'), ''] : null,
+    r.cases.v ? ['✅', 'Le plus de cases en un jour', `${r.cases.v}`, fmtShort(parseKey(r.cases.k))] : null,
+    r.money.v ? ['💰', 'Plus gros total d’argent', fmtMoney(r.money.v), fmtShort(parseKey(r.money.k))] : null,
+    ...doms.map(({ d, n }) => [d.emoji, `${d.name} d’affilée`, plural(n, 'jour', 'jours'), '']),
+  ].filter(Boolean);
+  return `<section class="card"><div class="c-head"><h2>🏆 Mes records</h2><span class="muted small">battus en direct</span></div>
+    ${rows.map(([e, l, v, d]) => `<div class="rec-row"><span>${e} ${esc(l)}</span><b>${v}</b><small class="muted">${d}</small></div>`).join('')}</section>`;
+}
+
+// Humeur des 30 derniers jours et découvertes
+function insightsCard() {
+  const ins = insights(), ms = moodSeries(30), rated = ms.filter(([, v]) => v);
+  const chart = rated.length ? `<div class="mood-chart" aria-label="Humeur des 30 derniers jours">${ms.map(([k, v]) => `<span class="mc-bar m${v}" style="height:${v ? 18 + v * 16 : 6}%" title="${fmtShort(parseKey(k))}${v ? ' · ' + MOODS[v] : ''}"></span>`).join('')}</div>
+    <p class="muted small">Humeur moyenne sur 30 jours : <b>${MOODS[Math.round(rated.reduce((a, [, v]) => a + v, 0) / rated.length)]} ${(rated.reduce((a, [, v]) => a + v, 0) / rated.length).toFixed(1).replace('.', ',')}/5</b> (${plural(rated.length, 'jour noté', 'jours notés')})</p>`
+    : '<p class="muted small">Note ton humeur chaque jour (sous tes cases) pour voir ce qui te fait du bien.</p>';
+  return `<section class="card"><div class="c-head"><h2>💡 Découvertes</h2><span class="muted small">ce qui marche pour toi</span></div>
+    ${chart}
+    ${ins.list.length ? `<ul class="insights">${ins.list.map(x => `<li><span>${x.ico}</span><p>${x.txt}</p></li>`).join('')}</ul>`
+      : `<p class="muted">${ins.days < NEEDED_DAYS ? `Encore ${plural(NEEDED_DAYS - ins.days, 'jour', 'jours')} d’historique pour tes premières découvertes.` : 'Rien de marquant pour l’instant : continue, les liens apparaîtront.'}</p>`}
+  </section>`;
+}
+
 export function render() {
   const t = today(), n = activeDomains().length;
   const d = { c: dayCount(key(t)) }, w = weekScore(), m = monthScore(), st = globalStreak(), best = globalBest();
@@ -145,13 +180,18 @@ export function render() {
       ${statTile('Série', `🔥 ${st.n}`, `record : ${plural(best, 'jour', 'jours')}`, 'g4')}
     </div>
     <p class="muted small center">Une journée compte pour la série si au moins ${Math.round((S.settings.threshold || 0.5) * 100)} % des cases sont cochées.</p>
+    <button class="btn tint full recap-btn" data-act="recapOpen">📅 Bilan de la semaine · note ${weekRecap(weekStart(t), G()).grade.g}</button>
     ${heatmap()}
     ${moneyChart()}
-    <div class="two stats-two">${weeksChart()}${domainsCard()}${journal()}</div>`;
+    <div class="two stats-two">${weeksChart()}${domainsCard()}${recordsCard()}${insightsCard()}${journal()}</div>`;
 }
 
 export const actions = {
   heatDom(el) { ui.heatDom = el.dataset.id; },
   heatSel(el) { ui.heatSel = ui.heatSel === el.dataset.k ? null : el.dataset.k; },
   journalAll() { ui.journalAll = true; },
+  recapOpen() {
+    const ws = weekStart(today());
+    showRecap({ ...weekRecap(ws, G()), live: true, provisional: !recapReady(ws) });
+  },
 };

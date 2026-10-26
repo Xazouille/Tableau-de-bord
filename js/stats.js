@@ -54,3 +54,17 @@ export function totalChecks() {
   for (const d of Object.values(S.days)) c += d.c ? Object.keys(d.c).length : 0;
   return c;
 }
+
+// Phrases tirées de « Ma vision »
+export function visionSentences() {
+  const out = [];
+  for (const b of S.vision.blocks) {
+    for (const line of (b.text || '').split(/\n+/)) {
+      for (const s of line.split(/(?<=[.!?…])\s+/)) {
+        const t = s.replace(/^[-•*\s]+/, '').trim();
+        if (t.length >= 8) out.push(t);
+      }
+    }
+  }
+  return out;
+}

@@ -7,10 +7,21 @@ import { caseXP, SLEEP_OK_FROM } from '../measures.js';
 import { isPerfect, isGoodDay, bestOf, globalBest, periodScore, dayCount } from '../stats.js';
 import { LINES, FORMS } from './roster.js';
 import { TIERS, TIER_KEYS, kindOf, smallAt, levelRewards } from './tiers.js';
+import { runBosses } from './boss.js';
+import { runMastery } from './mastery.js';
+import { albumState } from './albums.js';
+import { recapWeeks, gradeOf, RECAP_HOUR } from './weekly.js';
 
 export const PERFECT_BONUS = 50, NOTE_XP = 5, VISIT_XP = 10, MEDIA_XP = 50, STEP_XP = 15;
 export const FRAG = { 1: 3, 2: 6, 3: 12, 4: 25, 5: 50 };
 export const JOKER_MAX = 3;
+// Boss battu : de l'XP en plus de sa grande box et de sa carte
+export const BOSS_XP = 100, LEGEND_XP = 250;
+// Fusion des doublons : 3 pour une carte éveillée, 5 de plus pour l'ultime ; un compagnon fusionné grandit plus vite
+export const FUSE_COST = { 1: 3, 2: 5 };
+export const AWAKEN = { 1: { name: 'Éveillée', mult: 1.25 }, 2: { name: 'Ultime', mult: 1.5 } };
+// Une brillante obtenue une deuxième fois rapporte des fragments
+export const SHINY_DUP = 30;
 
 /* ---------- Niveaux ---------- */
 export const xpNeed = L => Math.round(300 + 40 * Math.pow(L - 1, 1.2));
@@ -19,8 +30,8 @@ export function levelOf(xp) {
   while (rest >= xpNeed(L)) { rest -= xpNeed(L); L++; }
   return { level: L, into: rest, need: xpNeed(L) };
 }
-const TITLES = [[1, 'Débutant'], [3, 'Apprenti'], [5, 'Motivé'], [8, 'Régulier'], [12, 'Discipliné'], [16, 'Guerrier'], [20, 'Machine'], [25, 'Élite'], [30, 'Maître'], [40, 'Légende'], [50, 'Mythique'], [75, 'Divin']];
-export const titleOf = L => TITLES.filter(t => L >= t[0]).pop()[1];
+export const LEVEL_TITLES = [[1, 'Débutant'], [3, 'Apprenti'], [5, 'Motivé'], [8, 'Régulier'], [12, 'Discipliné'], [16, 'Guerrier'], [20, 'Machine'], [25, 'Élite'], [30, 'Maître'], [40, 'Légende'], [50, 'Mythique'], [75, 'Divin']];
+export const titleOf = L => LEVEL_TITLES.filter(t => L >= t[0]).pop()[1];
 
 /* ---------- Objectifs ---------- */
 const HORIZON_DAYS = { semaine: 7, mois: 30, trimestre: 90, annee: 365, libre: 30 };
@@ -85,7 +96,8 @@ function weekChallenges(ws, dayXP) {
 /* ---------- Calcul complet (mis en cache tant que rien ne change) ---------- */
 let memo = { s: null, mod: -1, day: '', v: null };
 export function G() {
-  const tk = todayKey();
+  // Le dimanche à 18 h, le bilan de la semaine s'ouvre : on recalcule
+  const now = new Date(), tk = todayKey() + (now.getDay() === 0 && now.getHours() >= RECAP_HOUR ? '+' : '');
   if (memo.s !== S || memo.mod !== S.meta.modified || memo.day !== tk) memo = { s: S, mod: S.meta.modified, day: tk, v: compute() };
   return memo.v;
 }
@@ -146,20 +158,64 @@ function compute() {
   }
   const challenges = weekChallenges(weekStart(t), dayXP);
 
-  const xp = xpCases + xpBonus + xpGoals + xpMedia + xpBadges + xpChallenges;
+  // Boss : grande box (deux pour un légendaire), sa carte et de l'XP à chaque victoire
+  const since = S.game.since;
+  const boss = runBosses(caseXPs, tk);
+  let xpBoss = 0;
+  for (const b of boss.history) if (b.won) { earned.g += b.legendary ? 2 : 1; xpBoss += b.legendary ? LEGEND_XP : BOSS_XP; }
+  // Maîtrise : une grande box à chaque nouveau rang d'un domaine (depuis l'arrivée de la maîtrise)
+  const mastery = runMastery(activeDomains(), dayKeys, caseXPs);
+  for (const m of Object.values(mastery)) for (const r of m.rankUps) if (r.day >= since) earned.g++;
+  // Bilan de la semaine : grande box pour un S, classique pour un A, petite pour un B
+  const recaps = recapWeeks(since).map(ws => ({ ws: key(ws), grade: gradeOf(periodScore(ws, addDays(ws, 6)).pct) }));
+  for (const r of recaps) if (r.grade.box) earned[r.grade.box]++;
+
+  const xp = xpCases + xpBonus + xpGoals + xpMedia + xpBadges + xpChallenges + xpBoss;
   const lvl = levelOf(xp);
 
-  // Collection : chaque box ouverte donne une famille (au premier stade) ; les doublons donnent des fragments
-  const pulls = [...S.game.pulls].sort((a, b) => a.t - b.t);
+  // Collection : chaque box ouverte donne une famille (au premier stade). Les doublons restent sur la carte,
+  // à fusionner ou à échanger ; ceux d'avant cette version sont devenus des fragments tout seuls.
+  const dupFrom = S.game.dupFrom || 0;
+  const bossPulls = boss.history.filter(b => b.won).map(b => ({ id: 'boss' + b.n, b: 'boss' + b.n, l: b.line, r: LINES[b.line].rarity, t: b.t, v: 1 }));
+  const pulls = [...S.game.pulls, ...bossPulls].sort((a, b) => a.t - b.t);
   const owned = {}, opened = { p: new Set(), c: new Set(), g: new Set() };
   let frags = 0, since4 = 0, since5 = 0;
   for (const p of pulls) {
-    if (owned[p.l]) { owned[p.l].count++; frags += FRAG[p.r] || 0; }
-    else owned[p.l] = { count: 1, t: p.t };
+    const o = owned[p.l];
+    if (!o) owned[p.l] = { count: 1, t: p.t, auto: 0, shiny: !!p.s };
+    else {
+      o.count++;
+      if (p.t < dupFrom) { o.auto++; frags += FRAG[p.r] || 0; }
+      if (p.s) { if (o.shiny) frags += SHINY_DUP; else o.shiny = true; }
+    }
+    if (p.v) continue;   // carte d'un boss : pas une box
     // Une box ouverte = un booster (les anciennes box d'une seule carte comptent pour une)
     opened[kindOf(p)].add(p.b || p.id);
     if (TIERS[kindOf(p)].pity) { since4 = p.r >= 4 ? 0 : since4 + 1; since5 = p.r >= 5 ? 0 : since5 + 1; }
   }
+  // Fusions et échanges de doublons, dans l'ordre où ils ont été faits
+  const used = {}, awaken = {}, awakenAt = {};
+  const avail = l => owned[l] ? owned[l].count - 1 - owned[l].auto - (used[l] || 0) : 0;
+  const acts = [...S.game.fusions.map(f => ({ ...f, fuse: true })), ...S.game.recycles].sort((a, b) => a.t - b.t);
+  let fusionCount = 0;
+  for (const e of acts) {
+    if (!owned[e.l] || !LINES[e.l]) continue;
+    if (e.fuse) {
+      const lv = (awaken[e.l] || 0) + 1;
+      if (e.lv !== lv || !FUSE_COST[lv] || avail(e.l) < FUSE_COST[lv]) continue;
+      used[e.l] = (used[e.l] || 0) + FUSE_COST[lv]; awaken[e.l] = lv; fusionCount++;
+      (awakenAt[e.l] = awakenAt[e.l] || [])[lv] = key(new Date(e.t));
+    } else {
+      const n = Math.min(e.n || 0, avail(e.l));
+      if (n > 0) { used[e.l] = (used[e.l] || 0) + n; frags += n * (FRAG[LINES[e.l].rarity] || 0); }
+    }
+  }
+  const dups = {};
+  for (const l of Object.keys(owned)) { const a = avail(l); if (a > 0) dups[l] = a; }
+  const shinies = Object.values(owned).filter(o => o.shiny).length;
+  // Albums complets : une grande box chacun
+  const albums = albumState(owned);
+  for (const a of albums) if (a.done) earned.g++;
   // Niveaux : une grande box de bienvenue, une par niveau gagné, et des bonus tous les 5 niveaux
   for (let L = 1; L <= lvl.level; L++) for (const tier of levelRewards(L)) earned[tier]++;
   // Échanges de fragments
@@ -181,7 +237,9 @@ function compute() {
       while (ci + 1 < comp.length && comp[ci + 1].from <= k) ci++;
       const line = comp[ci].line, L = LINES[line], thr = compThreshold(line);
       const st = lineState[line] || (lineState[line] = { xp: 0, path: [L.base] });
-      st.xp += dayXP[k] || 0;
+      // Un compagnon éveillé (fusion) grandit plus vite
+      const aw = awakenAt[line], lvAw = aw && aw[2] && aw[2] <= k ? 2 : aw && aw[1] && aw[1] <= k ? 1 : 0;
+      st.xp += Math.round((dayXP[k] || 0) * (lvAw ? AWAKEN[lvAw].mult : 1));
       for (;;) {
         const cur = FORMS[st.path[st.path.length - 1]];
         if (!cur.next.length || st.xp < thr * st.path.length) break;
@@ -221,9 +279,10 @@ function compute() {
 
   return {
     dayXP, caseXPs, money, xp, lvl, title: titleOf(lvl.level),
-    breakdown: { cases: xpCases, bonus: xpBonus, goals: xpGoals, media: xpMedia, badges: xpBadges, challenges: xpChallenges },
+    breakdown: { cases: xpCases, bonus: xpBonus, goals: xpGoals, media: xpMedia, badges: xpBadges, challenges: xpChallenges, boss: xpBoss },
     challenges, owned, frags, since4, since5, boxes, boxesEarned, forms, companion, jokers, regressions, evolutions,
-    mediaDone, smallAt: sAt,
+    mediaDone, smallAt: sAt, boss, mastery, recaps, albums, dups, awaken, shinies, fusionCount,
+    rarityOf: l => (LINES[l] ? LINES[l].rarity : 0),
   };
 }
 
@@ -269,6 +328,21 @@ export function badgeDefs() {
   add('Collection', 'first5', '🌟', 'Légendaire !', 'Obtenir une carte 5★', 300, c => c.maxRarity >= 5);
   add('Collection', 'evo1', '✨', 'Première évolution', 'Faire évoluer ton compagnon', 150, c => c.evolutions >= 1);
   add('Collection', 'evo10', '🧬', 'Éleveur', 'Faire évoluer tes compagnons 10 fois', 500, c => c.evolutions >= 10);
+  add('Collection', 'shiny1', '✨', 'Ça brille !', 'Obtenir une carte brillante', 100, c => c.shinies >= 1);
+  add('Collection', 'shiny10', '💫', 'Chasseur de brillantes', 'Obtenir 10 cartes brillantes', 500, c => c.shinies >= 10, 'g');
+  add('Collection', 'fusion1', '🔮', 'Première fusion', 'Éveiller une carte avec ses doublons', 100, c => c.fusions >= 1);
+  add('Collection', 'ultime1', '🌈', 'Carte ultime', 'Amener une carte au stade ultime', 300, c => c.ultime >= 1, 'c');
+  add('Collection', 'album1', '📚', 'Premier album', 'Compléter un album', 200, c => c.albums >= 1);
+  add('Collection', 'album5', '📖', 'Archiviste', 'Compléter 5 albums', 800, c => c.albums >= 5, 'g');
+  add('Boss', 'boss1', '⚔️', 'Premier boss vaincu', 'Battre ton premier boss', 100, c => c.bosses >= 1);
+  add('Boss', 'boss10', '🗡️', 'Chasseur de boss', 'Battre 10 boss', 500, c => c.bosses >= 10, 'c');
+  add('Boss', 'boss-leg', '🐉', 'Tueur de légende', 'Battre un boss légendaire', 300, c => c.legends >= 1, 'g');
+  add('Boss', 'boss50', '☠️', 'Fléau des méchants', 'Battre 50 boss', 1500, c => c.bosses >= 50, 'g');
+  add('Maîtrise', 'm-confirme', '🔷', 'Confirmé', 'Rang Confirmé dans un domaine (niveau 31)', 300, c => c.rank >= 3);
+  add('Maîtrise', 'm-maitre', '🔮', 'Maître', 'Rang Maître dans un domaine (niveau 51)', 800, c => c.rank >= 5, 'g');
+  add('Maîtrise', 'm-legende', '👑', 'Légende vivante', 'Rang Légende dans un domaine (niveau 81)', 2000, c => c.rank >= 8, 'g');
+  add('Bilans', 'recap-s', '💯', 'Semaine parfaite', 'Obtenir la note S à un bilan', 300, c => c.gradeS >= 1);
+  add('Bilans', 'recap-a4', '📅', 'Régularité', 'Obtenir A ou S à 4 bilans', 400, c => c.gradeA >= 4, 'c');
   [5, 10, 20, 30, 50].forEach((n, i) => add('Niveaux', 'niv' + n, '⭐', `Niveau ${n}`, `Atteindre le niveau ${n}`, 100 + i * 150, c => c.level >= n));
   defsCache = list; defsKey = k;
   return list;
@@ -302,6 +376,10 @@ function badgeCtx() {
     media, goalsDone: goalsDone.length,
     yearGoal: goalsDone.some(x => x.horizon === 'annee' || goalXP(x) >= 2500),
     forms: g.forms.size, maxRarity, evolutions: g.evolutions, level: g.lvl.level,
+    shinies: g.shinies, fusions: g.fusionCount, ultime: Object.values(g.awaken).filter(v => v >= 2).length, albums: g.albums.filter(a => a.done).length,
+    bosses: g.boss.history.filter(b => b.won).length, legends: g.boss.history.filter(b => b.won && b.legendary).length,
+    rank: Math.max(0, ...Object.values(g.mastery).map(m => m.rank)),
+    gradeS: g.recaps.filter(r => r.grade.g === 'S').length, gradeA: g.recaps.filter(r => 'SA'.includes(r.grade.g)).length,
   };
 }
 

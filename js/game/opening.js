@@ -1,8 +1,8 @@
 // Invocation en plein écran : autel des box, coffre à fissurer, explosion, cartes à retourner,
-// mise en scène des cartes 4★ et 5★ ; et l'écran de passage de niveau.
+// mise en scène des cartes 4★, 5★ et brillantes ; écrans de niveau, de fusion, de boss vaincu et de bilan.
 import { openBox, cardHTML, setCompanion, chestHTML } from './gacha.js';
-import { G } from './rules.js';
-import { RARITY } from './roster.js';
+import { G, AWAKEN, FUSE_COST, BOSS_XP, LEGEND_XP, SHINY_DUP } from './rules.js';
+import { RARITY, LINES, FORMS } from './roster.js';
 import { TIERS, TIER_KEYS, levelRewards } from './tiers.js';
 import { confetti, buzz, burstAt, implode } from '../fx.js';
 import { ui, rerender, pushModal, popModal, holdBanners } from '../ui.js';
@@ -160,27 +160,30 @@ function spread() {
       <div class="ov-rays"></div>
       <p class="ov-kicker">${T.name}</p>
       <p class="sp-hint">${N > 1 ? 'Touche les cartes pour les retourner' : 'Touche la carte pour la retourner'}</p>
-      <div class="sp-cards">${pack.map((c, i) => `<div class="fcard r${c.rarity}" role="button" tabindex="0" data-ov="flip" data-i="${i}" style="--i:${i};--rc:${RARITY[c.rarity].color}" aria-label="Retourner la carte ${i + 1}">
-          <div class="fc-inner"><div class="fc-back"><span class="fc-emblem">⚡</span><span class="fc-shine"></span></div>
-          <div class="fc-front">${cardHTML(c.form.id, { size: N === 1 ? 'xl' : 'sm', big: N === 1 })}</div></div>
-          <span class="fc-tag ${c.isNew ? 'new' : ''}">${c.isNew ? 'NOUVEAU' : `+${c.frag} 💎`}</span></div>`).join('')}</div>
+      <div class="sp-cards">${pack.map((c, i) => `<div class="fcard r${c.rarity} ${c.shiny ? 'shiny' : ''}" role="button" tabindex="0" data-ov="flip" data-i="${i}" style="--i:${i};--rc:${RARITY[c.rarity].color}" aria-label="Retourner la carte ${i + 1}">
+          <div class="fc-inner"><div class="fc-back"><span class="fc-emblem">⚡</span><span class="fc-shine"></span>${c.shiny ? '<span class="fc-sparks"><i></i><i></i><i></i></span>' : ''}</div>
+          <div class="fc-front">${cardHTML(c.form.id, { size: N === 1 ? 'xl' : 'sm', big: N === 1, shiny: c.shiny })}</div></div>
+          <span class="fc-tag ${c.shinyNew ? 'shiny' : c.isNew ? 'new' : 'dup'}">${tagOf(c)}</span></div>`).join('')}</div>
       <div class="sp-foot">${N > 1 ? '<button class="btn ghost" data-ov="flipAll">Tout retourner</button>' : ''}</div>
       <div class="showcase" hidden></div>
       ${CLOSE}</div>`, 'spread-ov');
 }
 
+const tagOf = c => (c.shinyNew ? '✨ BRILLANTE' : c.isNew ? 'NOUVEAU' : c.shiny ? `✨ +${SHINY_DUP} 💎` : `DOUBLON ×${c.dups}`);
+const RAINBOW = ['#ffd700', '#ff6ad5', '#7c5cff', '#00d4ff', '#ffffff'];
+
 function flipCard(i) {
   if (!layer || !pack || flipped[i] || busy) return;
   const el = layer.querySelectorAll('.fcard')[i], c = pack[i];
   flipped[i] = true;
-  if (c.rarity >= 4) {
+  if (c.rarity >= 4 || c.shiny) {
     busy = true;
     el.classList.add('charging');
     buzz([25, 25, 25, 25, 70]);
     later(() => {
       el.classList.remove('charging'); el.classList.add('flipped');
       const [x, y] = center(el);
-      burstAt(x, y, [c.rarity === 5 ? '#ffd700' : RARITY[4].color, '#ffffff'], 70, 1.1);
+      burstAt(x, y, c.shiny ? RAINBOW : [c.rarity === 5 ? '#ffd700' : RARITY[4].color, '#ffffff'], c.shiny ? 110 : 70, 1.1);
       later(() => showcase(c), 420);
     }, 650);
   } else {
@@ -194,16 +197,17 @@ function flipCard(i) {
 function showcase(c) {
   const sc = layer && layer.querySelector('.showcase');
   if (!sc) return;
-  sc.innerHTML = `<div class="sc r${c.rarity}" data-ov="showcase" style="--rc:${RARITY[c.rarity].color}">
+  sc.innerHTML = `<div class="sc r${c.rarity} ${c.shiny ? 'shiny r5' : ''}" data-ov="showcase" style="--rc:${RARITY[c.rarity].color}">
       <div class="sc-rays"></div>
+      ${c.shiny ? '<p class="sc-shiny">✨ BRILLANTE ✨</p>' : ''}
       <p class="sc-rarity">${'<span>★</span>'.repeat(c.rarity)}<b>${RARITY[c.rarity].name}</b></p>
-      <div class="sc-card">${cardHTML(c.form.id, { size: 'xl', big: true })}</div>
+      <div class="sc-card">${cardHTML(c.form.id, { size: 'xl', big: true, shiny: c.shiny })}</div>
       <h2 class="sc-name">${esc(c.form.name)}</h2>
-      ${c.isNew ? '<span class="new-tag">NOUVEAU !</span>' : `<p class="ov-msg">Doublon · <b>+${c.frag} 💎</b></p>`}
+      ${c.isNew ? '<span class="new-tag">NOUVEAU !</span>' : c.shinyNew ? '<span class="new-tag">VERSION BRILLANTE !</span>' : `<p class="ov-msg">Doublon · <b>×${c.dups}</b> à fusionner ou échanger</p>`}
       <p class="sc-tap">Touche pour continuer</p></div>`;
   sc.hidden = false;
-  confetti(c.rarity === 5 ? 240 : 110);
-  buzz(c.rarity === 5 ? [60, 40, 60, 40, 200] : [60, 40, 120]);
+  confetti(c.rarity === 5 || c.shiny ? 240 : 110);
+  buzz(c.rarity === 5 || c.shiny ? [60, 40, 60, 40, 200] : [60, 40, 120]);
 }
 function hideShowcase() {
   const sc = layer && layer.querySelector('.showcase');
@@ -230,11 +234,11 @@ function afterFlip() {
   if (flipped.some(f => !f)) return;
   // Toutes les cartes sont retournées : le résumé
   const b = G().boxes, T = TIERS[tier];
-  const news = pack.filter(c => c.isNew), frags = pack.reduce((a, c) => a + c.frag, 0);
+  const news = pack.filter(c => c.isNew), dups = pack.filter(c => !c.isNew).length, shinies = pack.filter(c => c.shiny).length;
   const newBest = [...pack].reverse().find(c => c.isNew);
   const foot = layer.querySelector('.sp-foot');
   layer.querySelector('.sp-hint').textContent = '';
-  foot.innerHTML = `<div class="sp-sum">${news.length ? `<span>✨ ${plural(news.length, 'nouvelle carte', 'nouvelles cartes')}</span>` : '<span>Que des doublons…</span>'}${frags ? `<span>💎 +${frags} fragments</span>` : ''}</div>
+  foot.innerHTML = `<div class="sp-sum">${news.length ? `<span>🆕 ${plural(news.length, 'nouvelle carte', 'nouvelles cartes')}</span>` : ''}${shinies ? `<span>✨ ${plural(shinies, 'brillante', 'brillantes')} !</span>` : ''}${dups ? `<span>🃏 ${plural(dups, 'doublon', 'doublons')} : fusion ou échange</span>` : ''}</div>
     <div class="ov-actions">
       ${newBest && !G().companion ? `<button class="btn primary" data-ov="companion" data-line="${newBest.line.id}">🐾 Choisir ${esc(newBest.form.name)} comme compagnon</button>` : ''}
       ${b[tier] ? `<button class="btn primary" data-ov="altar" data-k="${tier}">🎁 Encore une ${T.name.toLowerCase()} (${b[tier]})</button>` : ''}
@@ -271,4 +275,74 @@ export function showLevelUp(level, title, gained = 1) {
     else { confetti(220); buzz([40, 60, 40, 60, 140]); layer.querySelector('.ov-level').classList.add('reached'); }
   };
   setTimeout(step, 550);
+}
+
+/* ---------- Fusion : les doublons se rassemblent, la carte s'éveille ---------- */
+export function showFusion(lineId, lv) {
+  const L = LINES[lineId], f = FORMS[L.base], g = G(), o = g.owned[lineId] || {};
+  const n = FUSE_COST[lv] || 3;
+  show(`<div class="fusion lv${lv}" style="--rc:${RARITY[L.rarity].color}">
+      <div class="ov-rays"></div>
+      <p class="ov-kicker">Fusion de ${plural(n, 'doublon', 'doublons')}</p>
+      <div class="fu-stage">${Array.from({ length: n }, (_, i) => `<i class="fu-ghost" style="--a:${Math.round(i * 360 / n)}deg;--i:${i}"></i>`).join('')}
+        <div class="fu-card">${cardHTML(f.id, { size: 'xl', big: true, aw: lv, shiny: o.shiny })}</div><div class="fu-flash"></div></div>
+      <h2 class="fu-name">${esc(f.name)}</h2>
+      <p class="fu-lv">${lv === 2 ? '🌈 ULTIME !' : '✨ ÉVEILLÉE !'}</p>
+      <p class="ov-msg">Nouveau cadre${lv === 2 ? ' arc-en-ciel' : ' doré'} · en compagnon, elle grandit ${Math.round((AWAKEN[lv].mult - 1) * 100)} % plus vite</p>
+      <div class="ov-actions"><button class="btn primary" data-ov="close">Trop bien !</button></div>
+      ${CLOSE}</div>`, 'fusion-ov');
+  later(() => { const el = layer.querySelector('.fu-card'); if (el) { const [x, y] = center(el); burstAt(x, y, lv === 2 ? RAINBOW : ['#ffd700', '#ffe08a', '#ffffff'], 120, 1.2); confetti(lv === 2 ? 200 : 120); buzz([40, 40, 120]); } }, 1150);
+}
+
+/* ---------- Boss vaincu ---------- */
+export function showBossKO(b) {
+  const L = LINES[b.line], days = b.days.length;
+  const next = G().boss.current ? 'Le prochain boss est déjà là !' : 'Le prochain boss arrive demain.';
+  show(`<div class="boss-ko ${b.legendary ? 'legend' : ''}">
+      <div class="ov-rays"></div>
+      <p class="ov-kicker">${b.legendary ? 'Boss légendaire vaincu' : 'Boss vaincu'}</p>
+      <div class="ko-stage"><img class="ko-img" src="${esc(b.img)}" alt="" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'"><span class="ko-txt">K.O. !</span></div>
+      <h2>${esc(b.name)} est vaincu !</h2>
+      <p class="ov-msg">En ${plural(days, 'jour', 'jours')} · ${b.hp.toLocaleString('fr-FR')} PV détruits</p>
+      <div class="lv-rewards">
+        <span class="lv-rw" style="--i:0">${chestHTML('g', 'mini')}<b>${b.legendary ? '2 × ' : ''}Grande box</b></span>
+        <span class="lv-rw" style="--i:1"><span class="ko-card">${cardHTML(L.base, { size: 'sm' })}</span><b>Sa carte</b></span>
+        <span class="lv-rw" style="--i:2">⚡<b>+${b.legendary ? LEGEND_XP : BOSS_XP} XP</b></span>
+      </div>
+      <p class="ov-tip">${next}</p>
+      <div class="ov-actions">${G().boxes.g ? '<button class="btn primary" data-ov="altar" data-k="g">🎁 Ouvrir ma grande box</button>' : ''}<button class="btn ghost" data-ov="close">Continuer</button></div>
+    </div>`, 'ko-ov');
+  later(() => { confetti(b.legendary ? 240 : 150); buzz([80, 40, 80, 40, 200]); }, 900);
+}
+
+/* ---------- Bilan de la semaine ---------- */
+const MOODS = ['', '😞', '😕', '😐', '🙂', '😄'];
+export function showRecap(r) {
+  const gr = r.grade, box = gr.box, b = G().boxes;
+  const fmt = d => `${d.getDate()}/${d.getMonth() + 1}`;
+  const sun = new Date(r.ws); sun.setDate(sun.getDate() + 6);
+  const delta = r.pct - r.prevPct;
+  const lines = [];
+  if (r.best) lines.push(`${r.best.d.emoji} Domaine phare : <b>${esc(r.best.d.name)}</b> (${r.best.n}/7)`);
+  for (const x of r.bosses) lines.push(x.won ? `⚔️ ${esc(x.name)} vaincu` : `💨 ${esc(x.name)} s’est enfui`);
+  if (r.mood) lines.push(`${MOODS[Math.round(r.mood)]} Humeur moyenne : <b>${r.mood.toFixed(1).replace('.', ',')}/5</b>`);
+  if (r.record) lines.push('🏆 <b>Nouveau record</b> : ta meilleure semaine en XP !');
+  show(`<div class="recap g-${gr.g}" style="--gc:${gr.color}">
+      <div class="ov-rays"></div>
+      <p class="ov-kicker">Bilan de la semaine · ${fmt(r.ws)} → ${fmt(sun)}</p>
+      <div class="rc-grade"><span>${gr.g}</span></div>
+      <h2>${r.provisional ? `Note provisoire : ${gr.g}` : gr.title}</h2>
+      <div class="rc-stats">
+        <div><b>${r.pct} %</b><small>${delta ? `${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)} pts` : 'score'}</small></div>
+        <div><b>${r.done}</b><small>cases</small></div>
+        <div><b>${r.perfect}</b><small>${r.perfect > 1 ? 'parfaites' : 'parfaite'}</small></div>
+        <div><b>${r.xp.toLocaleString('fr-FR')}</b><small>XP</small></div>
+      </div>
+      ${lines.length ? `<ul class="rc-lines">${lines.map(l => `<li>${l}</li>`).join('')}</ul>` : ''}
+      <div class="rc-reward">${box ? `${chestHTML(box, 'mini')}<span><b>${r.provisional ? `Dimanche, si ça reste comme ça : ${TIERS[box].name.toLowerCase()}` : `${TIERS[box].name} gagnée !`}</b><small>Note ${gr.g}</small></span>`
+        : `<span><b>${r.provisional ? 'Pas encore de box' : 'Pas de box cette fois'}</b><small>Note B (60 %) pour une petite box, A (75 %) pour une classique, S (90 %) pour une grande</small></span>`}</div>
+      ${r.next && r.live ? `<p class="ov-tip">${r.provisional ? 'Le bilan tombe dimanche à 18 h. ' : 'Il reste ce soir pour monter. '}Prochaine note : ${r.next.g} à ${r.next.min} %.</p>` : ''}
+      <div class="ov-actions">${box && !r.provisional && b[box] ? `<button class="btn primary" data-ov="altar" data-k="${box}">🎁 Ouvrir ma box</button>` : ''}<button class="btn ghost" data-ov="close">${box && !r.provisional ? 'Plus tard' : 'Fermer'}</button></div>
+    </div>`, 'recap-ov');
+  later(() => { if (!r.provisional && 'SA'.includes(gr.g)) confetti(gr.g === 'S' ? 240 : 140); buzz([50, 40, 120]); }, 750);
 }
