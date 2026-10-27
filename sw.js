@@ -1,6 +1,6 @@
 // Service worker : rend l'appli utilisable hors ligne.
 // Les fichiers de l'appli sont d'abord demandés au réseau (pour recevoir les mises à jour), puis au cache si pas de connexion.
-const CACHE = 'levelup-v12';
+const CACHE = 'levelup-v13';
 const IMG_CACHE = 'levelup-img-v1';
 const IMG_MAX = 250;   // images gardées hors ligne ; les plus anciennes sont effacées
 const ASSETS = [

@@ -51,7 +51,9 @@ export function goalXP(g) {
 }
 
 /* ---------- Compagnon ---------- */
-export const compThreshold = lineId => 700 + 250 * ((LINES[lineId] && LINES[lineId].rarity) || 1);
+// XP par stade d'évolution : rapide pour les cartes communes, de plus en plus long avec la rareté
+export const EVO_XP = [0, 500, 750, 1050, 1400, 1750];
+export const compThreshold = lineId => EVO_XP[(LINES[lineId] && LINES[lineId].rarity) || 1];
 // Jour « sans » : pas de révision, moins de 7 h de sommeil et rien en alimentation (les trois à la fois)
 export function isBadDay(k) {
   const sv = valOf(k, 'sommeil');
