@@ -27,5 +27,7 @@ for n in range(1, 494):
     else:
         best = max(cs, key=lambda x: (x[1][:4], 1 if 'Holo' in (x[0].get('rarity') or '') or 'Rare' in (x[0].get('rarity') or '') else 0, x[1]))[0]; stats['recent'] += 1
     out.append(enc(best['images']['small']))
+# Choix faits à la main par Aaron (gardés si on relance le script)
+for n, c in {390: '1:swsh9/24.png', 391: '1:bw8/16.png', 392: '1:sv6/173.png'}.items(): out[n] = c
 print(stats, file=sys.stderr)
 print(json.dumps(out))
