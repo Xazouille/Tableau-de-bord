@@ -1,7 +1,17 @@
 // Écran « Ma vision » : ce que je pense, ce que je veux devenir.
-import { S, save, touch, newId } from '../store.js';
+import { S, save, touch, newId, activeDomains } from '../store.js';
+import { G } from '../game/rules.js';
 import { ui, ico, toast } from '../ui.js';
 import { esc, fmtDate } from '../util.js';
+
+// Qui je suis déjà : les identités gagnées par la pratique, en face de qui je veux devenir
+function already() {
+  const g = G(), list = activeDomains().map(d => ({ d, id: g.identity[d.id] })).filter(x => x.id && x.id.stage).sort((a, b) => b.id.stage - a.id.stage);
+  if (!list.length) return '';
+  return `<button class="v-already" data-act="tab" data-tab="growth"><span class="eyebrow">✨ Qui je suis déjà</span>
+    <span class="id-now">${list.slice(0, 8).map(x => `<span class="id-chip" style="--c:${x.d.color}">${x.d.emoji} ${esc(x.id.name)}</span>`).join('')}</span>
+    <small class="muted">Gagné jour après jour, par ce que tu fais vraiment ›</small></button>`;
+}
 
 export function render() {
   const blocks = S.vision.blocks;
@@ -26,6 +36,7 @@ export function render() {
         <button class="btn primary" data-act="visionEditOn">✍️ Écrire ma vision</button></div>`;
   return `<header class="page-head row-head"><div><h1>Ma vision</h1>${S.vision.u ? `<p class="eyebrow">Mise à jour le ${fmtDate(new Date(S.vision.u))}</p>` : ''}</div>
       ${filled.length ? `<button class="btn" data-act="visionEditOn">${ico('edit')} Modifier</button>` : ''}</header>
+    ${already()}
     <div class="vision">${body}</div>`;
 }
 

@@ -1,7 +1,7 @@
 // Données de l'appli : valeurs par défaut, enregistrement sur l'appareil,
 // fusion entre deux appareils et synchro via un dépôt GitHub privé.
 import { todayKey, uid } from './util.js';
-import { PRESETS, DEFAULT_XP } from './measures.js';
+import { PRESETS, DEFAULT_XP, TIME_MEASURE } from './measures.js';
 
 // Mode démo : un compte de démonstration rangé à part (les vraies données ne sont pas touchées)
 export const DEMO = (() => { try { return localStorage.getItem('tdb2-demo') === '1'; } catch (e) { return false; } })();
@@ -30,7 +30,15 @@ const DEFAULT_DOMAINS = [
   ['sommeil', 'Sommeil', '😴', '#6c7bff', 'Une vraie nuit de sommeil'],
   ['ecran', 'Écran < 2h', '📵', '#ff4fa3', 'Moins de 2 h sur le téléphone'],
   ['scroll', 'Pas de scroll', '🙅', '#00b3ff', 'Zéro réseau en scroll infini'],
+  ['pas', 'Pas', '👟', '#84cc16', 'Marcher, bouger dans la journée'],
+  ['journal', 'Journal', '📓', '#e879f9', 'Quelques lignes sur papier'],
+  ['competence', 'Compétence', '🧠', '#6366f1', 'Apprendre ou pratiquer une compétence'],
+  ['rangement', 'Rangement', '🧹', '#14c8c8', 'Ranger, nettoyer'],
+  ['hygiene', 'Hygiène', '🪥', '#00b3ff', 'Prendre soin de moi'],
 ].map(([id, name, emoji, color, hint]) => ({ id, name, emoji, color, hint, archived: false, xp: DEFAULT_XP[id], m: PRESETS[id] }));
+
+// Cases arrivées avec une mise à jour (ajoutées aux données existantes)
+const NEW_DOMAINS = ['pas', 'journal', 'competence', 'rangement', 'hygiene'];
 
 const DEFAULT_VISION = [
   { id: 'devenir', title: 'Qui je veux devenir', text: '' },
@@ -43,13 +51,14 @@ export function defaults() {
     meta: { modified: 0 },
     profile: { name: 'Aaron', start: todayKey(), u: 0 },
     settings: { theme: 'auto', threshold: 0.5, u: 0 },
-    domains: { list: DEFAULT_DOMAINS.map(d => ({ ...d })), u: 0 },
+    domains: { list: DEFAULT_DOMAINS.map(d => ({ ...d })), added: [...NEW_DOMAINS], u: 0 },
     days: {},
     goals: [],
     media: [],
     vision: { blocks: DEFAULT_VISION.map(b => ({ ...b })), u: 0 },
+    skills: [], habits: [], reviews: {}, wins: [],
     // since : début des boss, bilans et rangs de maîtrise récompensés ; dupFrom : avant cette heure, les doublons devenaient des fragments tout seuls
-    game: { pulls: [], trades: [], fusions: [], recycles: [], visits: {}, badges: {}, jokerDays: {}, comp: [], rewards: [], since: todayKey(), dupFrom: Date.now(), u: 0 },
+    game: { pulls: [], trades: [], fusions: [], recycles: [], visits: {}, badges: {}, jokerDays: {}, chal: {}, comp: [], rewards: [], since: todayKey(), dupFrom: Date.now(), u: 0 },
     dead: {},
   };
 }
@@ -60,19 +69,31 @@ function normalize(d) {
   const o = Object.assign(defaults(), d || {});
   for (const k of ['meta', 'profile', 'settings', 'domains', 'vision', 'game']) o[k] = Object.assign(def[k], o[k] && typeof o[k] === 'object' ? o[k] : {});
   for (const k of ['days', 'dead']) if (!o[k] || typeof o[k] !== 'object' || Array.isArray(o[k])) o[k] = {};
-  for (const k of ['goals', 'media']) if (!Array.isArray(o[k])) o[k] = [];
+  for (const k of ['goals', 'media', 'skills', 'habits', 'wins']) if (!Array.isArray(o[k])) o[k] = [];
+  if (!o.reviews || typeof o.reviews !== 'object' || Array.isArray(o.reviews)) o.reviews = {};
   if (!Array.isArray(o.domains.list)) o.domains.list = defaults().domains.list;
   if (!Array.isArray(o.vision.blocks)) o.vision.blocks = defaults().vision.blocks;
+  // Nouvelles cases ajoutées par une mise à jour : une seule fois, et elles ne comptent qu'à partir d'aujourd'hui
+  // (les journées passées restent parfaites)
+  if (d && d.domains && Array.isArray(d.domains.list)) {
+    const seen = new Set([...o.domains.list.map(x => x.id), ...(Array.isArray(d.domains.added) ? d.domains.added : [])]);
+    for (const nd of DEFAULT_DOMAINS) if (NEW_DOMAINS.includes(nd.id) && !seen.has(nd.id)) o.domains.list.push({ ...nd, from: todayKey() });
+    o.domains.added = [...new Set([...(Array.isArray(d.domains.added) ? d.domains.added : []), ...NEW_DOMAINS])];
+  }
   // Domaines d'une version sans XP ni détail : on reprend les réglages par défaut
   for (const d of o.domains.list) {
     if (d.xp == null) d.xp = DEFAULT_XP[d.id] ?? 15;
     if (!d.m) d.m = PRESETS[d.id] || { kind: 'none' };
+    // Options sans minutes (versions d'avant le minuteur) : on reprend celles du préréglage si ce sont les mêmes
+    const pr = PRESETS[d.id];
+    if (d.m.opts && pr && pr.opts && d.m.kind === pr.kind && d.m.opts.map(x => x[0]).join() === pr.opts.map(x => x[0]).join()) d.m.opts = pr.opts;
+    else if (d.m.kind === 'levels' && d.m.opts && d.m.opts.map(x => x[0]).join() === TIME_MEASURE.opts.map(x => x[0]).join()) d.m.opts = TIME_MEASURE.opts;
   }
   const g = o.game;
   for (const k of ['pulls', 'trades', 'fusions', 'recycles', 'comp', 'rewards']) if (!Array.isArray(g[k])) g[k] = [];
   if (typeof g.since !== 'string') g.since = todayKey();
   if (typeof g.dupFrom !== 'number') g.dupFrom = Date.now();
-  for (const k of ['visits', 'badges', 'jokerDays']) if (!g[k] || typeof g[k] !== 'object' || Array.isArray(g[k])) g[k] = {};
+  for (const k of ['visits', 'badges', 'jokerDays', 'chal']) if (!g[k] || typeof g[k] !== 'object' || Array.isArray(g[k])) g[k] = {};
   return o;
 }
 
@@ -97,9 +118,13 @@ function persist() {
   try { localStorage.setItem(KEY, JSON.stringify(S)); storageOK = true; }
   catch (e) { storageOK = false; }
 }
+// Numéro de version des données : change à chaque modification (sert aux calculs mis en cache)
+let REV = 0;
+export const rev = () => REV;
 // Enregistre une modification : sur l'appareil, puis en ligne si la synchro est active
 export function save() {
   if (leaving) return;
+  REV++;
   S.meta.modified = Date.now();
   persist();
   schedulePush();
@@ -144,6 +169,8 @@ export function setMood(k, v) {
   S.days[k] = touch(day);
 }
 export const activeDomains = () => S.domains.list.filter(d => !d.archived);
+// Cases qui comptent pour le jour k (une case ajoutée ne compte qu'à partir de son jour d'ajout)
+export const domainsOn = k => S.domains.list.filter(d => !d.archived && !(d.from && d.from > k));
 
 /* ---------- Listes (objectifs, médiathèque) ---------- */
 export function upsert(list, item) {
@@ -171,11 +198,13 @@ export function merge(a, b) {
   m.game = mergeGame(a.game, b.game, m.dead);
   m.days = { ...a.days };
   for (const [k, d] of Object.entries(b.days)) m.days[k] = mergeDay(m.days[k], d);
-  for (const list of ['goals', 'media']) {
+  for (const list of ['goals', 'media', 'skills', 'habits', 'wins']) {
     const byId = new Map();
     for (const it of [...a[list], ...b[list]]) byId.set(it.id, newer(byId.get(it.id), it));
     m[list] = [...byId.values()].filter(it => !(m.dead[it.id] >= (it.u || 0)));
   }
+  m.reviews = { ...a.reviews };
+  for (const [k, r] of Object.entries(b.reviews)) m.reviews[k] = newer(m.reviews[k], r);
   m.meta = { modified: Date.now() };
   return m;
 }
@@ -209,14 +238,16 @@ function mergeDay(a, b) {
 function mergeGame(a, b, dead) {
   const byId = (x, y) => { const m = new Map(); for (const it of [...x, ...y]) m.set(it.id, it); return [...m.values()].sort((p, q) => (p.t || 0) - (q.t || 0)); };
   const newerById = (x, y) => { const m = new Map(); for (const it of [...x, ...y]) { const o = m.get(it.id); if (!o || (it.u || 0) > (o.u || 0)) m.set(it.id, it); } return [...m.values()]; };
-  const badges = { ...b.badges };
+  const badges = { ...b.badges }, chal = { ...a.chal };
+  // Défis choisis : pour chaque semaine, le choix le plus récent
+  for (const [w, c] of Object.entries(b.chal)) if (!chal[w] || (c.u || 0) > (chal[w].u || 0)) chal[w] = c;
   for (const [id, d] of Object.entries(a.badges)) badges[id] = badges[id] && badges[id] < d ? badges[id] : d;
   return {
     ...a,
     pulls: byId(a.pulls, b.pulls), trades: byId(a.trades, b.trades), comp: byId(a.comp, b.comp),
     fusions: byId(a.fusions, b.fusions), recycles: byId(a.recycles, b.recycles),
     since: a.since < b.since ? a.since : b.since, dupFrom: Math.min(a.dupFrom, b.dupFrom),
-    visits: { ...a.visits, ...b.visits }, jokerDays: { ...a.jokerDays, ...b.jokerDays }, badges,
+    visits: { ...a.visits, ...b.visits }, jokerDays: { ...a.jokerDays, ...b.jokerDays }, badges, chal,
     rewards: newerById(a.rewards, b.rewards).filter(r => !(dead[r.id] >= (r.u || 0))),
     u: Math.max(a.u || 0, b.u || 0),
   };

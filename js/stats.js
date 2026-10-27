@@ -1,10 +1,12 @@
 // Calculs : séries 🔥, scores du jour / de la semaine / du mois, calendrier.
-import { S, isDone, activeDomains } from './store.js';
+import { S, isDone, domainsOn } from './store.js';
 import { key, parseKey, today, addDays, weekStart } from './util.js';
 
-export const dayCount = k => activeDomains().filter(d => isDone(k, d.id)).length;
-export const dayRatio = k => { const n = activeDomains().length; return n ? dayCount(k) / n : 0; };
-export const isPerfect = k => { const n = activeDomains().length; return n > 0 && dayCount(k) === n; };
+// Cases du jour k : celles qui existaient ce jour-là
+export const dayTotal = k => domainsOn(k).length;
+export const dayCount = k => domainsOn(k).filter(d => isDone(k, d.id)).length;
+export const dayRatio = k => { const n = dayTotal(k); return n ? dayCount(k) / n : 0; };
+export const isPerfect = k => { const n = dayTotal(k); return n > 0 && dayCount(k) === n; };
 // Jour sauvé par un joker (module de jeu)
 export const isJoker = k => !!(S.game.jokerDays && S.game.jokerDays[k]);
 // Journée « réussie » : assez de cases cochées pour faire vivre la série globale
@@ -34,11 +36,11 @@ export const globalBest = () => bestOf(isGoodDay);
 
 // Score d'une période (du jour start au jour end inclus, sans dépasser aujourd'hui)
 export function periodScore(start, end) {
-  const n = activeDomains().length, t = today();
+  const t = today();
   if (end > t) end = t;
-  let days = 0, done = 0;
-  for (let d = new Date(start); d <= end; d = addDays(d, 1)) { days++; done += dayCount(key(d)); }
-  return { done, max: days * n, pct: days && n ? Math.round(done / (days * n) * 100) : 0 };
+  let max = 0, done = 0;
+  for (let d = new Date(start); d <= end; d = addDays(d, 1)) { const k = key(d); max += dayTotal(k); done += dayCount(k); }
+  return { done, max, pct: max ? Math.round(done / max * 100) : 0 };
 }
 export const weekScore = (d = today()) => periodScore(weekStart(d), addDays(weekStart(d), 6));
 export const monthScore = (d = today()) => periodScore(new Date(d.getFullYear(), d.getMonth(), 1), new Date(d.getFullYear(), d.getMonth() + 1, 0));

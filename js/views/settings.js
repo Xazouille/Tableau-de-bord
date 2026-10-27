@@ -9,6 +9,7 @@ export function renderMore() {
   return `<header class="page-head"><h1>Plus</h1></header>
     <div class="hubs">
       ${item('media', '🍿', 'Médiathèque', `${S.media.length} films, livres, mangas, animés, séries`, '#ff4fa3')}
+      ${item('growth', '🌱', 'Progrès', 'Qui je suis, victoires, compétences, habitudes, bilans', '#22c55e')}
       ${item('vision', '🌅', 'Ma vision', 'Ce que je pense, qui je veux devenir', '#ff8a3d')}
       ${item('settings', '⚙️', 'Réglages', 'Domaines, thème, synchro, sauvegarde', '#4f8cff')}
     </div>`;
@@ -93,15 +94,17 @@ export function sheet(s) {
   const d = s.id ? S.domains.list.find(x => x.id === s.id) : null;
   const v = d || { name: '', emoji: '⭐', hint: '', color: COLORS[S.domains.list.length % COLORS.length], xp: 15, m: { kind: 'none' } };
   const m = v.m || { kind: 'none' };
-  const custom = m.kind === 'levels' && JSON.stringify(m.opts) !== JSON.stringify(TIME_MEASURE.opts);
+  const custom = (m.kind === 'levels' && JSON.stringify(m.opts) !== JSON.stringify(TIME_MEASURE.opts)) || m.kind === 'skill';
   const kind = custom ? 'keep' : m.kind === 'levels' ? 'time' : m.kind;
-  const kinds = [...(custom ? [['keep', `Réglage actuel : ${m.opts.map(o => o[0]).join(' / ')}`]] : []), ['none', 'Juste une case'], ['time', 'Temps passé (15 min → 2 h et +)'], ['list', 'Liste d’objectifs à cocher'], ['money', 'Montant en €']];
+  const kinds = [...(custom ? [['keep', m.kind === 'skill' ? 'Compétence travaillée + temps passé' : `Réglage actuel : ${m.opts.map(o => o[0]).join(' / ')}`]] : []), ['none', 'Juste une case'], ['time', 'Temps passé (15 min → 2 h et +)'], ['list', 'Liste d’objectifs à cocher'], ['money', 'Montant en €']];
   return `<form class="form" data-form="domain" data-type="${kind}">
     <h2>${d ? 'Modifier le domaine' : 'Nouveau domaine'}</h2>
     <div class="grid2 emoji-name"><label class="f">Emoji<input name="emoji" class="emoji-in" maxlength="8" value="${esc(v.emoji)}" required></label>
       <label class="f">Nom<input name="name" maxlength="30" required value="${esc(v.name)}" placeholder="Ex. Boire 2 L d’eau"></label></div>
     <div class="emoji-ideas">${EMOJI_IDEAS.map(e => `<button type="button" data-act="pickEmoji" data-e="${e}">${e}</button>`).join('')}</div>
     <label class="f">Petite phrase <small>(facultatif)</small><input name="hint" maxlength="50" value="${esc(v.hint)}" placeholder="Ce qui compte comme « fait »"></label>
+    <div class="grid2"><label class="f">🧭 Si (quand) <small>(facultatif)</small><input name="pwhen" maxlength="60" value="${esc((v.plan || {}).when || '')}" placeholder="Ex. après le dîner"></label>
+      <label class="f">Alors je…<input name="pthen" maxlength="60" value="${esc((v.plan || {}).then || '')}" placeholder="Ex. 15 min de révision"></label></div>
     <div class="grid2"><label class="f">XP de base<input type="number" name="xp" min="0" max="500" inputmode="numeric" value="${esc(v.xp)}"></label>
       <label class="f">En cochant, je précise…<select name="mkind" data-input="domKind">${kinds.map(([id, l]) => `<option value="${id}" ${kind === id ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label></div>
     <label class="f if-list">Objectifs <small>(un par ligne)</small><textarea name="items" rows="4">${esc(m.kind === 'list' ? m.items.join('\n') : '')}</textarea></label>
@@ -182,8 +185,10 @@ export const forms = {
     if (f.mkind !== 'keep') v.m = f.mkind === 'time' ? { ...TIME_MEASURE, q: `Combien de temps pour « ${v.name} » ?` }
       : f.mkind === 'list' ? { kind: 'list', q: 'Qu’as-tu réussi aujourd’hui ?', items }
       : f.mkind === 'money' ? { kind: 'money', q: 'Total de tous mes comptes' } : { kind: 'none' };
-    if (d) Object.assign(d, v);
-    else S.domains.list.splice(S.domains.list.filter(x => !x.archived).length, 0, { id: uid(), archived: false, ...v });
+    const when = (f.pwhen || '').trim(), then = (f.pthen || '').trim();
+    v.plan = when ? { when, then } : undefined;
+    if (d) { Object.assign(d, v); if (!when) delete d.plan; }
+    else S.domains.list.splice(S.domains.list.filter(x => !x.archived).length, 0, { id: uid(), archived: false, from: todayKey(), ...v });
     ui.sheet = null; domSave(); toast(d ? 'Domaine modifié' : `${v.emoji} ${v.name} ajouté`);
   },
   sync(f) {

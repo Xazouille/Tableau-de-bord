@@ -72,6 +72,11 @@ export function titleList(g = G()) {
   out.push({ id: 'bo5', name: 'Chasseur de boss', need: { bosses: 5 } }, { id: 'bo25', name: 'Fléau des méchants', need: { bosses: 25 } },
     { id: 'lg3', name: 'Tueur de légendes', need: { legends: 3 } }, { id: 'sh10', name: 'Collectionneur brillant', need: { shinies: 10 } },
     { id: 'fu5', name: 'Alchimiste', need: { fusions: 5 } });
+  // Identités « Je suis… » déjà atteintes
+  for (const d of S.domains.list.filter(x => !x.archived)) {
+    const id = g.identity[d.id];
+    if (id) for (let i = 0; i < id.stage; i++) out.push({ id: `id-${d.id}-${i}`, name: id.names[i], need: { ident: [d.id, i] }, ok: true, how: `${d.name} : ${id.n} jours` });
+  }
   for (const d of S.domains.list.filter(x => !x.archived)) {
     const m = g.mastery[d.id];
     for (const r of [3, 5, 7, 8, 9]) out.push({ id: `ms-${d.id}-${r}`, name: `${RANKS[r][0]} en ${d.name}`, need: { domRank: [d.id, r] }, ok: !!m && m.rank >= r, how: `${d.name} : rang ${RANKS[r][0]} (niv. ${r * 10 + 1})` });

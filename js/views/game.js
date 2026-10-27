@@ -1,6 +1,6 @@
 // Écran « Jeu » : profil (niveau, boss, box, compagnon, défis…), cartes et albums, maîtrise, badges.
 import { S, save, touch, newId, activeDomains } from '../store.js';
-import { G, badgeDefs, compThreshold, JOKER_MAX, FRAG, FUSE_COST, AWAKEN } from '../game/rules.js';
+import { G, badgeDefs, compThreshold, JOKER_MAX, FRAG, FUSE_COST, AWAKEN, chalOpen, chalPick } from '../game/rules.js';
 import { LINES, FORMS, SERIES, RARITY } from '../game/roster.js';
 import { cardHTML, tradeFragments, setCompanion, chestHTML, fuse, recycle, recycleValue } from '../game/gacha.js';
 import { startBox, showFusion } from '../game/opening.js';
@@ -11,7 +11,7 @@ import { dayCount, visionSentences } from '../stats.js';
 import { nudges } from '../nudges.js';
 import { speech, burst } from '../fx.js';
 import { ui, ico, toast, openSheet, closeSheet, pref, setPref } from '../ui.js';
-import { esc, plural, fmtShort, parseKey, norm, todayKey } from '../util.js';
+import { esc, plural, fmtShort, parseKey, norm, todayKey, key, today, weekStart } from '../util.js';
 
 const nf = n => Math.round(n).toLocaleString('fr-FR');
 
@@ -159,14 +159,26 @@ function companionCard() {
 }
 
 function challengesCard() {
-  const ch = G().challenges, n = ch.filter(c => c.done).length;
-  return `<section class="card"><div class="c-head"><h2>🎯 Défis de la semaine</h2><span class="muted small">${n}/${ch.length} réussis</span></div>
+  const ch = G().challenges, n = ch.filter(c => c.done).length, open = chalOpen();
+  return `<section class="card"><div class="c-head"><h2>🎯 Défis de la semaine</h2>${open ? '<button class="btn sm primary" data-act="chalOpen">Choisir</button>' : `<span class="muted small">${n}/${ch.length} réussis</span>`}</div>
+    ${open ? '<p class="muted small">Tu choisis tes défis jusqu’à mardi soir. Ensuite, ils sont fixés pour la semaine.</p>' : ''}
     ${ch.map(c => `<div class="chal ${c.done ? 'done' : ''}" style="--tc:${TIERS[c.box].color}"><span class="chal-emoji">${c.done ? '✅' : c.emoji}</span>
       <div class="chal-main"><div class="chal-top"><b>${esc(c.text)}</b><span class="chal-lv">${c.label}</span></div>
       <div class="d-bar"><span style="width:${Math.min(100, Math.round(c.value / c.goal * 100))}%"></span></div>
       <span class="muted small">${nf(Math.min(c.value, c.goal))}${c.unit} / ${nf(c.goal)}${c.unit}</span></div>
       <span class="chal-rw" title="${TIERS[c.box].name}">${chestHTML(c.box, 'mini')}<small>+${c.xp} XP</small></span></div>`).join('')}
   </section>`;
+}
+
+// Choisir ses défis : un par niveau, parmi 3 (avoir le choix motive plus qu'un défi imposé)
+export function chalSheet() {
+  const g = G(), ws = weekStart(today()), pick = chalPick(ws), open = chalOpen(ws);
+  return `<div class="chal-sheet"><h2>🎯 Choisis tes défis</h2>
+    <p class="muted small">${open ? 'Un défi par niveau. Tu peux changer d’avis jusqu’à mardi soir ; ensuite, ils sont fixés pour la semaine.' : 'Le choix est fermé pour cette semaine : rendez-vous lundi pour les prochains.'}</p>
+    ${g.chalOptions.map((opts, lv) => { const c0 = opts[0]; return c0 ? `<p class="eyebrow chs-lv">${c0.label} · ${TIERS[c0.box].name.toLowerCase()} + ${c0.xp} XP</p>
+      <div class="chs-opts">${opts.map((c, i) => `<button class="chs-opt ${(pick[lv] || 0) === i ? 'on' : ''}" style="--tc:${TIERS[c.box].color}" ${open ? `data-act="chalPick" data-lv="${lv}" data-i="${i}"` : 'disabled'}>
+        <span class="chs-emoji">${c.emoji}</span><b>${esc(c.text)}</b><small class="muted">${nf(Math.min(c.value, c.goal))}${c.unit} / ${nf(c.goal)}${c.unit}</small></button>`).join('')}</div>` : ''; }).join('')}
+    <button class="btn primary full" data-act="chalConfirm">${open ? 'C’est parti !' : 'Fermer'}</button></div>`;
 }
 
 function resourcesCard() {
@@ -225,7 +237,7 @@ function rewardsCard() {
 
 function xpCard() {
   const b = G().breakdown;
-  const rows = [['✅', 'Cases cochées', b.cases], ['⭐', 'Bonus (journées parfaites, phrases, connexion)', b.bonus], ['🎯', 'Objectifs', b.goals], ['🍿', 'Médiathèque', b.media], ['🏅', 'Badges', b.badges], ['📅', 'Défis', b.challenges], ['⚔️', 'Boss', b.boss]];
+  const rows = [['✅', 'Cases cochées', b.cases], ['⭐', 'Bonus (journées parfaites, phrases, connexion)', b.bonus], ['🎯', 'Objectifs', b.goals], ['🍿', 'Médiathèque', b.media], ['🏅', 'Badges', b.badges], ['📅', 'Défis', b.challenges], ['⚔️', 'Boss', b.boss], ['🌱', 'Compétences et habitudes', b.growth], ['🪪', 'Identités', b.identity], ['🗓️', 'Bilans du mois', b.reviews]];
   return `<section class="card"><h2>⚡ D’où vient ton XP</h2>${rows.map(([e, l, v]) => `<div class="xp-row"><span>${e} ${l}</span><b>${nf(v)}</b></div>`).join('')}</section>`;
 }
 
@@ -417,6 +429,20 @@ export const actions = {
   shopOpen() { openSheet({ kind: 'shop' }); },
   bossOpen() { openSheet({ kind: 'boss' }); },
   lookOpen() { openSheet({ kind: 'look' }); },
+  chalPick(el) {
+    const ws = weekStart(today()), wk = key(ws);
+    if (!chalOpen(ws)) return;
+    const pick = [...(chalPick(ws).length ? chalPick(ws) : [0, 0, 0])];
+    pick[Number(el.dataset.lv)] = Number(el.dataset.i);
+    S.game.chal[wk] = { pick, u: Date.now() }; touch(S.game); save();
+    burst(el, '#f5b700'); ui.sheet = { ...ui.sheet };
+  },
+  // Valider : les défis par défaut comptent comme choisis (le rappel du lundi disparaît)
+  chalConfirm() {
+    const ws = weekStart(today()), wk = key(ws);
+    if (chalOpen(ws) && !S.game.chal[wk]) { S.game.chal[wk] = { pick: [0, 0, 0], u: Date.now() }; touch(S.game); save(); }
+    closeSheet();
+  },
   lookTab(el) { ui.lookTab = el.dataset.t; ui.sheet = { ...ui.sheet }; },
   lookSet(el) {
     S.settings.look = { ...(S.settings.look || {}), [el.dataset.kind]: el.dataset.id };

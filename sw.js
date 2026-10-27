@@ -1,6 +1,6 @@
 // Service worker : rend l'appli utilisable hors ligne.
 // Les fichiers de l'appli sont d'abord demandés au réseau (pour recevoir les mises à jour), puis au cache si pas de connexion.
-const CACHE = 'levelup-v6';
+const CACHE = 'levelup-v8';
 const IMG_CACHE = 'levelup-img-v1';
 const IMG_MAX = 250;   // images gardées hors ligne ; les plus anciennes sont effacées
 const ASSETS = [
@@ -8,7 +8,7 @@ const ASSETS = [
   './js/app.js', './js/store.js', './js/stats.js', './js/ui.js', './js/util.js', './js/fx.js', './js/vendor/morphdom.js',
   './js/views/today.js', './js/views/stats.js', './js/views/game.js', './js/views/goals.js', './js/views/media.js', './js/views/vision.js', './js/views/settings.js',
   './js/measures.js', './js/demo.js', './js/game/rules.js', './js/game/roster.js', './js/game/pokemon-data.js', './js/game/anime-data.js', './js/game/gacha.js', './js/game/opening.js', './js/game/tiers.js',
-  './js/game/boss.js', './js/game/mastery.js', './js/game/albums.js', './js/game/weekly.js', './js/game/cosmetics.js', './js/nudges.js', './js/insights.js',
+  './js/game/boss.js', './js/game/mastery.js', './js/game/albums.js', './js/game/weekly.js', './js/game/cosmetics.js', './js/nudges.js', './js/insights.js', './js/timer.js', './js/game/growth.js', './js/views/growth.js', './js/game/identity.js', './js/game/wins.js',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png',
 ];
 
