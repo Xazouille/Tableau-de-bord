@@ -215,7 +215,7 @@ export function lookSheet() {
   } else {
     // Thèmes complets avec un aperçu de l'écran d'accueil (dans la disposition choisie pour chacun)
     loadFonts(UIS);
-    body = `<p class="muted small">Chaque thème change les couleurs, la police et les arrondis de toute l’appli. La disposition se règle dans Réglages → Apparence.</p>
+    body = `<p class="muted small">Chaque thème change les couleurs, la police, les arrondis et l’icône de l’appli. La disposition se règle dans Réglages → Apparence (l’icône de l’écran d’accueil aussi y est expliquée).</p>
       <div class="lk-grid th-grid">${LOOKS.map(t => { const ok = isUnlocked(t.need, c); return `<button class="lk-theme ${w.theme.id === t.id ? 'on' : ''} ${ok ? '' : 'locked'}" ${ok ? `data-act="lookSet" data-kind="theme" data-id="${t.id}"` : 'disabled'}>
       ${preview(uiOf(t.id), curLayout(t.id))}<b>${ok ? '' : '🔒 '}${esc(t.name)}</b><small>${ok ? esc(t.desc) : esc(howTo(t.need))}</small></button>`; }).join('')}</div>`;
   }

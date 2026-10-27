@@ -29,7 +29,7 @@ Une motivation uniquement « pour le jeu » finit par s'user (effet nouveauté, 
 
 ### Pile
 - **HTML / CSS / JavaScript vanilla en modules ES**, aucune étape de build, aucune dépendance à installer. Seule bibliothèque : `js/vendor/morphdom.js` (mise à jour du DOM sans tout redessiner).
-- **PWA** : `manifest.webmanifest` + `sw.js` (service worker, réseau d'abord puis cache). ⚠️ À chaque publication qui change des fichiers JS/CSS, **incrémenter `CACHE`** dans `sw.js` (actuellement `levelup-v11`) et **ajouter tout nouveau fichier JS à `ASSETS`**.
+- **PWA** : `manifest.webmanifest` + `sw.js` (service worker, réseau d'abord puis cache). ⚠️ À chaque publication qui change des fichiers JS/CSS, **incrémenter `CACHE`** dans `sw.js` (actuellement `levelup-v12`) et **ajouter tout nouveau fichier JS à `ASSETS`**.
 - **Hébergement** : GitHub Pages, branche `main`, racine du dépôt (`.nojekyll` présent).
 - Lancer en local : `python3 -m http.server 8765` puis http://localhost:8765.
 
@@ -87,6 +87,7 @@ Une motivation uniquement « pour le jeu » finit par s'user (effet nouveauté, 
 - **Plans « si… alors… »** par case, affichés sur la case, dans sa fiche et le matin.
 - **Sommeil régulier** : « couché à mon heure (± 30 min) » = +10 XP, rappel 1 h avant l'heure de coucher, badges.
 - **Thèmes** (Jeu → Personnaliser → Thèmes) : 13 thèmes complets (couleurs, police, arrondis, en clair et en sombre), avec un aperçu de l'écran d'accueil pour chacun. **3 dès le départ** (Néon, Minuit, Papier), les autres **se débloquent** : Océan niv. 5, Super Saiyan niv. 10, Sakura niv. 15, Forêt rang Confirmé, Lave 5 boss, Akatsuki album Akatsuki, Game Boy badge 100 cartes, Galaxie niv. 25, Glace série de 30 jours, Prisme 10 brillantes. Définis dans `js/looks.js` (tokens CSS injectés, `data-ui` sur `<html>`), conditions dans `js/game/cosmetics.js`.
+- **Icône par thème** : l'onglet du navigateur prend tout de suite l'icône du thème porté. L'icône d'installation (`apple-touch-icon` sur iPhone, fichier d'appli `m/<thème>.webmanifest` sur Android) suit aussi le thème, mais l'écran d'accueil garde celle du moment de l'installation : il faut réinstaller l'appli pour la changer (sur iPhone, cela efface les données de l'appli → synchro ou sauvegarde avant). Couleurs dans `looks.js` (`icon`), images générées par `node tools/gen_theme_icons.js` dans `icons/t/`.
 - **Disposition** (Réglages → 🎨 Apparence, libre) : Classique, Liste, Mosaïque, Épurée, mémorisée pour chaque thème (`S.settings.layouts`, `data-layout` sur `<html>`), avec aperçus. Le mode Auto / Clair / Sombre est dans la même carte.
 - **Bienveillance** : après une série cassée, carte « 🌱 » au lieu d'un simple compteur à zéro ; en cochant, rappel du « pourquoi » (progrès réel ou phrase de la vision).
 

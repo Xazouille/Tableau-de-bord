@@ -1,0 +1,31 @@
+{
+  "id": "../",
+  "name": "Level Up · Aaron",
+  "short_name": "Level Up",
+  "description": "Habitudes, objectifs, médiathèque et collection à débloquer",
+  "lang": "fr",
+  "start_url": "../",
+  "scope": "../",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#131210",
+  "theme_color": "#131210",
+  "icons": [
+    {
+      "src": "../icons/t/papier-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "../icons/t/papier-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "../icons/t/papier-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

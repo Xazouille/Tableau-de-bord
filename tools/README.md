@@ -30,3 +30,12 @@ déjà obtenue, sinon la carte disparaît de la collection.
 une full art récente (2020 et après) si elle existe, sinon la carte la plus récente, sans les rééditions de cartes anciennes.
 Il lit un dossier `tcg/` : `sets.json` + un fichier JSON par extension (données de https://github.com/PokemonTCG/pokemon-tcg-data,
 complétées par les extensions les plus récentes au même format), et écrit le tableau JSON sur la sortie standard.
+
+# Icônes des thèmes
+
+`gen_theme_icons.js` dessine l'icône de chaque thème (couleurs `icon` dans `js/looks.js`) et écrit
+`icons/t/<thème>-180|192|512|maskable.png` et `m/<thème>.webmanifest`. Servir le dépôt sur http://localhost:8765, puis :
+
+```
+node tools/gen_theme_icons.js
+```
