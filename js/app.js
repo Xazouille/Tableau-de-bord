@@ -10,6 +10,7 @@ import { TIERS, TIER_KEYS, levelRewards } from './game/tiers.js';
 import { RANKS, rankOf } from './game/mastery.js';
 import { records, recapReady, weekRecap } from './game/weekly.js';
 import { worn, applyLook } from './game/cosmetics.js';
+import { applyUI } from './looks.js';
 import { globalBest, domainBest } from './stats.js';
 import { confetti } from './fx.js';
 import { todayKey, dayDiff, key, today as todayD, addDays, weekStart } from './util.js';
@@ -28,7 +29,7 @@ import { HABIT_STEPS, STAR_RULES, monthKey, prevMonth, reviewDone } from './game
 import { IDENT_XP } from './game/identity.js';
 
 const VIEWS = { today, stats, game, goals, media, vision, settings, growth, more: { render: settings.renderMore } };
-const SHEETS = { goal: goals.sheet, media: media.sheet, domain: settings.sheet, measure: today.sheet, card: game.sheet, odds: game.oddsSheet, shop: game.shopSheet, boss: game.bossSheet, look: game.lookSheet, timer: today.timerSheet, chal: game.chalSheet, plans: today.plansSheet };
+const SHEETS = { goal: goals.sheet, media: media.sheet, domain: settings.sheet, measure: today.sheet, card: game.sheet, odds: game.oddsSheet, shop: game.shopSheet, boss: game.bossSheet, look: game.lookSheet, timer: today.timerSheet, chal: game.chalSheet, plans: today.plansSheet, ui: settings.uiSheet };
 const MODULES = [today, stats, game, goals, media, vision, settings, growth];
 const actions = Object.assign({}, ...MODULES.map(m => m.actions || {}), {
   tab(el) {
@@ -64,6 +65,7 @@ function render() {
 
   const th = S.settings.theme;
   if (th === 'light' || th === 'dark') document.documentElement.dataset.theme = th; else delete document.documentElement.dataset.theme;
+  applyUI();
   applyLook(worn(G()).theme);
   const navTab = ['media', 'vision', 'settings', 'growth'].includes(ui.tab) ? 'more' : ui.tab;
   document.querySelectorAll('nav.tabs [data-tab]').forEach(b => {

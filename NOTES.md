@@ -29,7 +29,7 @@ Une motivation uniquement « pour le jeu » finit par s'user (effet nouveauté, 
 
 ### Pile
 - **HTML / CSS / JavaScript vanilla en modules ES**, aucune étape de build, aucune dépendance à installer. Seule bibliothèque : `js/vendor/morphdom.js` (mise à jour du DOM sans tout redessiner).
-- **PWA** : `manifest.webmanifest` + `sw.js` (service worker, réseau d'abord puis cache). ⚠️ À chaque publication qui change des fichiers JS/CSS, **incrémenter `CACHE`** dans `sw.js` (actuellement `levelup-v10`) et **ajouter tout nouveau fichier JS à `ASSETS`**.
+- **PWA** : `manifest.webmanifest` + `sw.js` (service worker, réseau d'abord puis cache). ⚠️ À chaque publication qui change des fichiers JS/CSS, **incrémenter `CACHE`** dans `sw.js` (actuellement `levelup-v11`) et **ajouter tout nouveau fichier JS à `ASSETS`**.
 - **Hébergement** : GitHub Pages, branche `main`, racine du dépôt (`.nojekyll` présent).
 - Lancer en local : `python3 -m http.server 8765` puis http://localhost:8765.
 
@@ -86,6 +86,7 @@ Une motivation uniquement « pour le jeu » finit par s'user (effet nouveauté, 
 - **Mur des victoires** : premières fois, nouveaux paliers, séries, journées parfaites, habitudes, étoiles, identités, rangs, objectifs, œuvres terminées, victoires notées (bouton « 🏅 C'est une victoire » sous la phrase du jour).
 - **Plans « si… alors… »** par case, affichés sur la case, dans sa fiche et le matin.
 - **Sommeil régulier** : « couché à mon heure (± 30 min) » = +10 XP, rappel 1 h avant l'heure de coucher, badges.
+- **Apparence** (Réglages → 🎨 Apparence) : 8 thèmes complets (Néon, Océan, Forêt, Sakura, Braise, Minuit, Papier, Game Boy), chacun en clair et en sombre, avec ses couleurs, polices et arrondis ; 4 dispositions (Classique, Liste, Mosaïque, Épurée), mémorisées pour chaque thème ; aperçu miniature de chaque choix, appliqué en direct. Défini dans `js/looks.js` (tokens CSS injectés, `data-ui` et `data-layout` sur `<html>`). Les « thèmes » débloqués dans le jeu (Personnaliser) recolorent par-dessus ; choisir un thème d'Apparence les retire.
 - **Bienveillance** : après une série cassée, carte « 🌱 » au lieu d'un simple compteur à zéro ; en cochant, rappel du « pourquoi » (progrès réel ou phrase de la vision).
 
 ---
@@ -128,6 +129,7 @@ Recherche faite en octobre 2026 pour savoir si cette motivation « par le jeu »
 3. PR #3 : 3 types de box + invocation animée, boss, maîtrise, fusion des doublons, brillantes, albums, bilan du dimanche, records, « presque ! », humeur et découvertes, recherche dans la collection, titres/cadres/thèmes, compagnon interactif.
 4. PR #4 : nouvelles cases (Pas, Journal, Compétence, Rangement, Hygiène), page Progrès (compétences, habitudes, bilans du mois), minuteur ; puis identités, mur des victoires, plans si… alors…, défis au choix, sommeil régulier, bienveillance, rappel du pourquoi, « pour toi ou pour le jeu ? ».
 
+6. Apparence : 8 thèmes et 4 dispositions avec aperçus (octobre 2026).
 5. Journée parfaite à 12/15, compteurs d'habitudes sur l'accueil, identités sur 11 paliers (~4 ans), cartes Pokémon full art récentes.
 
 ---

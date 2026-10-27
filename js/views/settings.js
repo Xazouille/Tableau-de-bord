@@ -4,6 +4,28 @@ import { ui, ico, toast, openSheet, closeSheet } from '../ui.js';
 import { esc, todayKey, uid, fmtShort } from '../util.js';
 import { TIME_MEASURE } from '../measures.js';
 import { perfectNeed } from '../stats.js';
+import { UIS, LAYOUTS, uiOf, curUI, curLayout, preview, loadFonts } from '../looks.js';
+
+// Apparence : le thème et la disposition en cours, et le mode clair / sombre
+const modeSegs = (act = 'theme') => { const th = S.settings.theme || 'auto'; return `<div class="segs">${[['auto', '🌗 Auto'], ['light', '☀️ Clair'], ['dark', '🌙 Sombre']].map(([id, l]) => `<button class="seg ${th === id ? 'on' : ''}" data-act="${act}" data-t="${id}">${l}</button>`).join('')}</div>`; };
+function uiCard() {
+  const u = uiOf(curUI()), lay = LAYOUTS.find(l => l.id === curLayout());
+  return `<section class="card ui-card"><div class="c-head"><h2>🎨 Apparence</h2><button class="link-btn" data-act="uiOpen">Changer ›</button></div>
+    <button class="ui-now" data-act="uiOpen">${preview(u, lay.id)}<span><b>${u.name}</b><small>${u.desc}</small><small class="ui-lay">Disposition : ${lay.name}</small></span></button>
+    <div class="f"><span>Mode</span>${modeSegs()}</div></section>`;
+}
+export function uiSheet() {
+  loadFonts(UIS);
+  const cur = uiOf(curUI()), lay = curLayout();
+  return `<div class="ui-sheet"><h2>🎨 Apparence</h2>
+    <p class="muted small">Touche un thème ou une disposition : l’appli change tout de suite. Chaque thème garde sa propre disposition.</p>
+    ${modeSegs('uiMode')}
+    <p class="eyebrow ui-sec">Thème</p>
+    <div class="ui-grid">${UIS.map(u => `<button class="ui-opt ${u.id === cur.id ? 'on' : ''}" data-act="uiSet" data-id="${u.id}" aria-pressed="${u.id === cur.id}">${preview(u, curLayout(u.id))}<b>${u.name}</b><small>${u.desc}</small></button>`).join('')}</div>
+    <p class="eyebrow ui-sec">Disposition pour ${cur.name}</p>
+    <div class="ui-grid">${LAYOUTS.map(l => `<button class="ui-opt ${l.id === lay ? 'on' : ''}" data-act="layoutSet" data-id="${l.id}" aria-pressed="${l.id === lay}">${preview(cur, l.id)}<b>${l.name}</b><small>${l.desc}</small></button>`).join('')}</div>
+    <button class="btn primary full" data-act="closeSheet">C’est bon</button></div>`;
+}
 
 export function renderMore() {
   const item = (tab, emoji, title, sub, c) => `<button class="hub" style="--c:${c}" data-act="tab" data-tab="${tab}"><span class="hub-emoji">${emoji}</span><span><b>${title}</b><small>${sub}</small></span>${ico('chev')}</button>`;
@@ -60,7 +82,7 @@ function domainsCard() {
 }
 
 export function render() {
-  const th = S.settings.theme || 'auto', thr = Math.round((S.settings.threshold || 0.5) * 100);
+  const thr = Math.round((S.settings.threshold || 0.5) * 100);
   const nDom = S.domains.list.filter(d => !d.archived).length, pNeed = perfectNeed(nDom);
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -71,9 +93,9 @@ export function render() {
   return `<header class="page-head"><h1>Réglages</h1></header>
     <div class="two">
     <div>
+    ${uiCard()}
     <section class="card"><h2>👤 Profil</h2>
       <label class="f">Prénom<input data-input="name" maxlength="30" value="${esc(S.profile.name)}"></label>
-      <div class="f"><span>Thème</span><div class="segs">${[['auto', '🌗 Auto'], ['light', '☀️ Clair'], ['dark', '🌙 Sombre']].map(([id, l]) => `<button class="seg ${th === id ? 'on' : ''}" data-act="theme" data-t="${id}">${l}</button>`).join('')}</div></div>
       <label class="f">Une journée compte pour la série 🔥 à partir de <b>${thr} %</b> des cases
         <input type="range" min="10" max="100" step="10" value="${thr}" data-input="threshold"></label>
       <label class="f">Journée parfaite 🏆 à partir de <b>${pNeed} cases sur ${nDom}</b>
@@ -151,6 +173,15 @@ const dom = id => S.domains.list.find(d => d.id === id);
 const domSave = () => { touch(S.domains); save(); };
 export const actions = {
   theme(el) { S.settings.theme = el.dataset.t; touch(S.settings); save(); },
+  uiOpen() { openSheet({ kind: 'ui' }); },
+  uiMode(el) { S.settings.theme = el.dataset.t; touch(S.settings); save(); ui.sheet = { ...ui.sheet }; },
+  // Nouveau thème : la couleur bonus du jeu (Personnaliser) est retirée pour qu'il s'affiche tel quel
+  uiSet(el) {
+    S.settings.ui = el.dataset.id;
+    if (S.settings.look && S.settings.look.theme) S.settings.look = { ...S.settings.look, theme: '' };
+    touch(S.settings); save(); ui.sheet = { ...ui.sheet };
+  },
+  layoutSet(el) { S.settings.layouts = { ...(S.settings.layouts || {}), [curUI()]: el.dataset.id }; touch(S.settings); save(); ui.sheet = { ...ui.sheet }; },
   domNew() { openSheet({ kind: 'domain' }); },
   domEdit(el) { openSheet({ kind: 'domain', id: el.dataset.id }); },
   domMove(el) {
