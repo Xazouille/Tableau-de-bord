@@ -376,7 +376,7 @@ export function sheet(s) {
       ${own ? `<p class="muted">Obtenue ${own.count > 1 ? `${own.count} fois` : '1 fois'}</p>` : '<p class="muted">Pas encore obtenue : elle peut sortir d’une box.</p>'}
       ${L.forms.length > 1 ? `<p class="eyebrow" style="margin-top:12px">Famille</p><div class="fam">${L.forms.map(id => `<button class="fam-item ${g.forms.has(id) ? '' : 'unknown'} ${id === f.id ? 'cur' : ''}" data-act="cardOpen" data-id="${id}"><img src="${esc(FORMS[id].img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'"><small>${g.forms.has(id) ? esc(FORMS[id].name) : '???'}</small></button>`).join('')}</div>
         <p class="muted small">On obtient toujours le premier stade. Les évolutions se débloquent en faisant grandir le compagnon (${nf(compThreshold(L.id))} XP par stade).</p>` : ''}
-      ${own ? (isComp ? '<p class="tag-ok">🐾 C’est ton compagnon</p>' : `<button class="btn primary" data-act="compSet" data-line="${L.id}">🐾 Choisir comme compagnon</button>`) : ''}
+      ${own ? (isComp ? '<p class="tag-ok">🐾 C’est ton compagnon</p>' : `${g.compStates[L.id] && g.compStates[L.id].stage ? `<p class="tag-ok">🐾 Il t’attend au stade ${g.compStates[L.id].stage + 1} (${esc(g.compStates[L.id].form.name)}) : il repartira de là.</p>` : ''}<button class="btn primary" data-act="compSet" data-line="${L.id}">🐾 Choisir comme compagnon</button>`) : ''}
       ${dupBox}
     </div></div>`;
 }
