@@ -1,6 +1,6 @@
 // Découvertes : ce qui marche pour toi, d'après ton historique (liens entre domaines, humeur, jours de la semaine).
 import { S, activeDomains, isDone, valOf } from './store.js';
-import { dayCount } from './stats.js';
+import { dayCount, dayRatio } from './stats.js';
 import { key, today, addDays, parseKey, esc } from './util.js';
 
 const WD = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
@@ -36,7 +36,7 @@ export function insights() {
       const diff = avg(w) - avg(wo);
       if (diff >= 0.4) out.push({ s: diff * 2.5, ico: d.emoji, txt: `Ton humeur est meilleure les jours de <b>${esc(d.name)}</b> : ${f1(avg(w))}/5 contre ${f1(avg(wo))}/5.` });
     }
-    const hi = md.filter(k => dayCount(k) / n >= 0.7).map(mood), lo = md.filter(k => dayCount(k) / n < 0.4).map(mood);
+    const hi = md.filter(k => dayRatio(k) >= 0.7).map(mood), lo = md.filter(k => dayRatio(k) < 0.4).map(mood);
     if (hi.length >= 3 && lo.length >= 3 && avg(hi) - avg(lo) >= 0.4) out.push({ s: 3, ico: '😄', txt: `Les jours bien remplis (70 % et plus), ton humeur monte à <b>${f1(avg(hi))}/5</b>, contre ${f1(avg(lo))}/5 les jours vides.` });
   }
   // Sommeil : une vraie nuit, et la journée qui suit
@@ -48,7 +48,7 @@ export function insights() {
   }
   // Jours de la semaine
   const byWd = Array.from({ length: 7 }, () => []);
-  for (const k of days) byWd[parseKey(k).getDay()].push(dayCount(k) / n);
+  for (const k of days) byWd[parseKey(k).getDay()].push(dayRatio(k));
   const wds = byWd.map((a, i) => ({ i, v: a.length >= 2 ? avg(a) : null })).filter(x => x.v != null).sort((a, b) => b.v - a.v);
   if (wds.length >= 5 && wds[0].v - wds[wds.length - 1].v >= 0.1) {
     const b = wds[0], w = wds[wds.length - 1];
@@ -56,7 +56,7 @@ export function insights() {
   }
   // Tendance : les 14 derniers jours contre les 14 d'avant
   if (days.length >= 28) {
-    const a = avg(days.slice(0, 14).map(k => dayCount(k) / n)), b = avg(days.slice(14, 28).map(k => dayCount(k) / n)), d = Math.round((a - b) * 100);
+    const a = avg(days.slice(0, 14).map(k => dayRatio(k))), b = avg(days.slice(14, 28).map(k => dayRatio(k))), d = Math.round((a - b) * 100);
     if (Math.abs(d) >= 5) out.push({ s: Math.abs(d) / 10, ico: d > 0 ? '🚀' : '📉', txt: d > 0 ? `Tu progresses : <b>+${d} points</b> sur les 2 dernières semaines par rapport aux 2 d’avant.` : `Petit coup de mou : <b>${d} points</b> sur les 2 dernières semaines. Une case à la fois !` });
   }
   return { list: out.sort((x, y) => y.s - x.s).slice(0, 5), days: days.length };

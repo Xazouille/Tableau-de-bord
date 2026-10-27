@@ -12,6 +12,8 @@ export function makeDemo() {
   d.profile.start = key(start);
   const rnd = Math.random;
   let money = 1450;
+  d.skills = [['Anglais', '🇬🇧', 3], ['Guitare', '🎸', 2], ['Code', '💻', 4]].map(([name, emoji, stars], i) => ({ id: 'sk' + i, name, emoji, stars, created: key(start), u: 1 }));
+  d.habits = [{ id: 'hb0', name: 'Sucre', emoji: '🍬', start: key(addDays(t, -50)), resets: [key(addDays(t, -20))], u: 1 }, { id: 'hb1', name: 'Réseaux le soir', emoji: '📱', start: key(addDays(t, -9)), resets: [], u: 1 }];
   for (let i = 120; i >= 1; i--) {
     const k = key(addDays(t, -i)), c = {}, x = {};
     const motivation = 0.55 + 0.35 * (1 - i / 120);       // de plus en plus régulier
@@ -20,6 +22,7 @@ export function makeDemo() {
       c[dom.id] = 1;
       if (dom.m.kind === 'levels') x[dom.id] = Math.min(dom.m.opts.length - 1, Math.floor(rnd() * dom.m.opts.length + 0.4));
       if (dom.m.kind === 'list') x[dom.id] = dom.m.items.map((_, j) => j).filter(() => rnd() < 0.7);
+      if (dom.m.kind === 'skill') x[dom.id] = { s: 'sk' + Math.floor(rnd() * 3), v: Math.floor(rnd() * 3) };
       if (dom.m.kind === 'money') { money = Math.round(money + (rnd() - 0.3) * 60); x[dom.id] = money; }
     }
     // Humeur : meilleure les jours bien remplis (pas notée tous les jours)

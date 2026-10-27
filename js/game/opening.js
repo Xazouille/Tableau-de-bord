@@ -6,7 +6,10 @@ import { RARITY, LINES, FORMS } from './roster.js';
 import { TIERS, TIER_KEYS, levelRewards } from './tiers.js';
 import { confetti, buzz, burstAt, implode } from '../fx.js';
 import { ui, rerender, pushModal, popModal, holdBanners } from '../ui.js';
-import { esc, plural } from '../util.js';
+import { esc, plural, key, parseKey, addDays } from '../util.js';
+import { S, save, activeDomains, isDone } from '../store.js';
+import { periodScore, isPerfect } from '../stats.js';
+import { reviewDone, monthName, REVIEW_XP } from './growth.js';
 
 let layer = null;
 export const overlayOpen = () => !!layer;
@@ -71,6 +74,7 @@ function onClick(e) {
   else if (act === 'altar') startBox(a.dataset.k);
   else if (act === 'companion') { setCompanion(a.dataset.line); ui.tab = 'game'; ui.gameTab = 'profil'; closeOverlay(); }
   else if (act === 'collection') { ui.tab = 'game'; ui.gameTab = 'collection'; closeOverlay(); }
+  else if (act === 'saveReview') saveReview(a.dataset.m);
 }
 
 /* ---------- Autel : choix de la box ---------- */
@@ -345,4 +349,64 @@ export function showRecap(r) {
       <div class="ov-actions">${box && !r.provisional && b[box] ? `<button class="btn primary" data-ov="altar" data-k="${box}">🎁 Ouvrir ma box</button>` : ''}<button class="btn ghost" data-ov="close">${box && !r.provisional ? 'Plus tard' : 'Fermer'}</button></div>
     </div>`, 'recap-ov');
   later(() => { if (!r.provisional && 'SA'.includes(gr.g)) confetti(gr.g === 'S' ? 240 : 140); buzz([50, 40, 120]); }, 750);
+}
+
+/* ---------- Bilan du mois : tes chiffres, puis 3 questions ---------- */
+function monthStats(mk) {
+  const [y, m] = mk.split('-').map(Number), start = new Date(y, m - 1, 1), end = new Date(y, m, 0);
+  const days = [];
+  for (let d = new Date(start); d <= end; d = addDays(d, 1)) days.push(key(d));
+  const g = G(), sc = periodScore(start, end);
+  const per = activeDomains().map(d => ({ d, n: days.filter(k => isDone(k, d.id)).length })).sort((a, b) => b.n - a.n);
+  const moods = days.map(k => S.days[k] && S.days[k].mood).filter(Boolean);
+  return {
+    pct: sc.pct, done: sc.done, perfect: days.filter(isPerfect).length, xp: days.reduce((a, k) => a + (g.dayXP[k] || 0), 0),
+    best: per[0] && per[0].n ? per[0] : null, low: per.filter(x => x.n).pop() || null,
+    mood: moods.length ? moods.reduce((a, b) => a + b, 0) / moods.length : 0,
+    bosses: g.boss.history.filter(b => b.won && b.endDay >= days[0] && b.endDay <= days[days.length - 1]).length,
+    skills: days.filter(k => isDone(k, 'competence')).length,
+  };
+}
+export function showMonthRecap(mk) {
+  const [y, m] = mk.split('-').map(Number), pk = `${m === 1 ? y - 1 : y}-${String(m === 1 ? 12 : m - 1).padStart(2, '0')}`;
+  const a = monthStats(mk), b = monthStats(pk), r = S.reviews[mk] || {}, done = reviewDone(r), live = mk >= key(new Date()).slice(0, 7);
+  const delta = (x, y2, unit = '') => { const d = Math.round(x - y2); return d ? `<small class="${d > 0 ? 'up' : 'down'}">${d > 0 ? '▲' : '▼'} ${Math.abs(d)}${unit}</small>` : '<small>=</small>'; };
+  const q = (id, label, ph) => `<label class="mr-q"><span>${label}</span><textarea id="mr-${id}" rows="2" maxlength="300" placeholder="${ph}">${esc(r[id] || '')}</textarea></label>`;
+  show(`<div class="month-recap">
+      <div class="ov-rays"></div>
+      <p class="ov-kicker">Bilan du mois</p>
+      <h2>${monthName(mk).replace(/^./, c => c.toUpperCase())}</h2>
+      <div class="rc-stats mr-stats">
+        <div><b>${a.pct} %</b>${delta(a.pct, b.pct, ' pts')}<small>score</small></div>
+        <div><b>${a.done}</b>${delta(a.done, b.done)}<small>cases</small></div>
+        <div><b>${a.perfect}</b>${delta(a.perfect, b.perfect)}<small>parfaites</small></div>
+        <div><b>${a.xp.toLocaleString('fr-FR')}</b>${delta(a.xp, b.xp)}<small>XP</small></div>
+      </div>
+      <ul class="rc-lines">
+        ${a.best ? `<li>${a.best.d.emoji} Ton point fort : <b>${esc(a.best.d.name)}</b> (${a.best.n} jours)</li>` : ''}
+        ${a.low && a.low !== a.best ? `<li>${a.low.d.emoji} À travailler : <b>${esc(a.low.d.name)}</b> (${a.low.n} jours)</li>` : ''}
+        ${a.bosses ? `<li>⚔️ ${plural(a.bosses, 'boss vaincu', 'boss vaincus')}</li>` : ''}
+        ${a.skills ? `<li>🧠 ${plural(a.skills, 'séance', 'séances')} de compétence</li>` : ''}
+        ${a.mood ? `<li>🙂 Humeur moyenne : <b>${a.mood.toFixed(1).replace('.', ',')}/5</b></li>` : ''}
+      </ul>
+      <div class="mr-form">
+        ${q('good', '✅ Qu’est-ce qui a bien marché ?', 'Ce dont tu es fier ce mois-ci…')}
+        ${q('bad', '🧱 Qu’est-ce qui t’a bloqué ?', 'Ce qui t’a freiné, et pourquoi…')}
+        ${q('focus', '🎯 Ton focus pour le mois prochain ?', 'Une priorité claire (elle s’affichera chaque jour)')}
+      </div>
+      <p class="ov-tip">${live ? 'Mois en cours : tu pourras valider ce bilan (box classique + ' + REVIEW_XP + ' XP) dès le 1er du mois prochain.' : done ? '✓ Bilan rempli : box classique et +' + REVIEW_XP + ' XP gagnées.' : `Réponds aux 3 questions : <b>box classique + ${REVIEW_XP} XP</b>.`}</p>
+      <div class="ov-actions"><button class="btn primary" data-ov="saveReview" data-m="${mk}">${done ? 'Enregistrer' : 'Valider mon bilan'}</button><button class="btn ghost" data-ov="close">Plus tard</button></div>
+      ${CLOSE}</div>`, 'month-ov');
+}
+function saveReview(mk) {
+  const val = id => (layer.querySelector('#mr-' + id) || {}).value || '';
+  const was = reviewDone(S.reviews[mk]);
+  S.reviews[mk] = { good: val('good').trim(), bad: val('bad').trim(), focus: val('focus').trim(), u: Date.now() };
+  save();
+  if (!reviewDone(S.reviews[mk])) { const tip = layer.querySelector('.ov-tip'); tip.innerHTML = '✍️ Écris au moins quelques mots à chaque question.'; buzz([30, 30, 30]); return; }
+  if (was || mk >= key(new Date()).slice(0, 7)) { closeOverlay(); return; }
+  confetti(160); buzz([50, 40, 120]);
+  const foot = layer.querySelector('.ov-actions'), tip = layer.querySelector('.ov-tip');
+  tip.innerHTML = `🎉 Bilan validé : <b>box classique + ${REVIEW_XP} XP</b> !`;
+  foot.innerHTML = `${G().boxes.c ? '<button class="btn primary" data-ov="altar" data-k="c">🎁 Ouvrir ma box classique</button>' : ''}<button class="btn ghost" data-ov="close">Fermer</button>`;
 }

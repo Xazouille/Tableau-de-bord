@@ -21,10 +21,14 @@ import * as goals from './views/goals.js';
 import * as media from './views/media.js';
 import * as vision from './views/vision.js';
 import * as settings from './views/settings.js';
+import * as growth from './views/growth.js';
+import { timerState, tick } from './timer.js';
+import { showMonthRecap } from './game/opening.js';
+import { HABIT_STEPS, STAR_RULES, monthKey, prevMonth, reviewDone } from './game/growth.js';
 
-const VIEWS = { today, stats, game, goals, media, vision, settings, more: { render: settings.renderMore } };
-const SHEETS = { goal: goals.sheet, media: media.sheet, domain: settings.sheet, measure: today.sheet, card: game.sheet, odds: game.oddsSheet, shop: game.shopSheet, boss: game.bossSheet, look: game.lookSheet };
-const MODULES = [today, stats, game, goals, media, vision, settings];
+const VIEWS = { today, stats, game, goals, media, vision, settings, growth, more: { render: settings.renderMore } };
+const SHEETS = { goal: goals.sheet, media: media.sheet, domain: settings.sheet, measure: today.sheet, card: game.sheet, odds: game.oddsSheet, shop: game.shopSheet, boss: game.bossSheet, look: game.lookSheet, timer: today.timerSheet };
+const MODULES = [today, stats, game, goals, media, vision, settings, growth];
 const actions = Object.assign({}, ...MODULES.map(m => m.actions || {}), {
   tab(el) {
     if (ui.tab !== el.dataset.tab) ui.collNewSince = null;
@@ -60,7 +64,7 @@ function render() {
   const th = S.settings.theme;
   if (th === 'light' || th === 'dark') document.documentElement.dataset.theme = th; else delete document.documentElement.dataset.theme;
   applyLook(worn(G()).theme);
-  const navTab = ['media', 'vision', 'settings'].includes(ui.tab) ? 'more' : ui.tab;
+  const navTab = ['media', 'vision', 'settings', 'growth'].includes(ui.tab) ? 'more' : ui.tab;
   document.querySelectorAll('nav.tabs [data-tab]').forEach(b => {
     const on = b.dataset.tab === ui.tab || (b.classList.contains('m-only') && b.dataset.tab === navTab);
     b.setAttribute('aria-current', on ? 'page' : 'false');
@@ -70,7 +74,11 @@ function render() {
   const demo = DEMO ? '<button class="demo-bar" data-act="demoOff">🧪 Mode démo : tout est débloqué · <b>Quitter la démo</b></button>' : '';
   const warn = storageOK ? '' : '<div class="card warn">Ce navigateur bloque l’enregistrement (navigation privée ?). Tes données seront perdues à la fermeture.</div>';
   // Un identifiant par onglet : changer d'onglet remplace la page (et rejoue son animation d'entrée)
-  morphdom(app, `<main id="app" class="view-${ui.tab}">${demo}${warn}<div class="page" id="pg-${ui.tab}">${view.render()}</div></main>`, MORPH);
+  // Minuteur en cours : une pastille visible partout
+  const tm = timerState(), tmDom = tm && S.domains.list.find(d => d.id === tm.dom);
+  const pill = tmDom ? `<button class="timer-pill ${tm.paused ? 'paused' : ''}" data-act="timerOpen" style="--c:${tmDom.color}">⏱️ <span>${tmDom.name}</span><b data-timer></b>${tm.paused ? '<small>en pause</small>' : ''}</button>` : '';
+  morphdom(app, `<main id="app" class="view-${ui.tab}">${demo}${warn}${pill}<div class="page" id="pg-${ui.tab}">${view.render()}</div></main>`, MORPH);
+  if (tm) tick();
 
   if (ui.sheet !== lastSheet) {
     const prev = lastSheet;
@@ -143,6 +151,7 @@ function checkProgress() {
     announceMastery(g);
     announceAlbums(g);
     announceBoss(g);
+    announceGrowth(g);
 
     // Un seul grand écran à la fois : boss vaincu, puis bilan de la semaine
     if (overlayOpen() || ui.sheet) return;
@@ -154,6 +163,13 @@ function checkProgress() {
       fresh.filter(b => !b.won).forEach(b => banner({ icon: '💨', title: `${b.name} s’est enfui…`, sub: 'Il reviendra plus tard. Un nouveau boss t’attend !', color: '#64748b' }));
       const won = fresh.filter(b => b.won);
       if (won.length) { showBossKO(won[won.length - 1]); return; }
+    }
+    // Nouveau mois : le bilan du mois dernier (une fois)
+    const cm = monthKey(todayD()), pm = monthKey(prevMonth());
+    if (pref('monthSeen') == null) setPref('monthSeen', cm);
+    else if (pref('monthSeen') !== cm) {
+      setPref('monthSeen', cm);
+      if (!reviewDone(S.reviews[pm]) && Object.keys(S.days).some(k => k.startsWith(pm))) { showMonthRecap(pm); return; }
     }
     const ws = recapReady(weekStart(todayD())) ? weekStart(todayD()) : addDays(weekStart(todayD()), -7), wk = key(ws);
     if (pref('recapSeen') !== wk) {
@@ -209,6 +225,28 @@ function announceAlbums(g) {
   try { al = JSON.parse(pref('albums')); } catch (e) {}
   if (al) for (const a of g.albums) if (a.done && !al.includes(a.id)) banner({ icon: a.emoji, title: `Album complété : ${a.name} !`, sub: `Grande box + titre « ${a.title} »`, color: '#f59e0b', cls: 'gold-ban' });
   if (!al || done.length !== al.length) setPref('albums', JSON.stringify(done));
+}
+
+// Habitudes : nouveau palier ; compétences : nouvelle étoile validée par la pratique
+function announceGrowth(g) {
+  let seen = null;
+  try { seen = JSON.parse(pref('growth')); } catch (e) {}
+  const now = { h: {}, s: {} };
+  for (const h of g.habits) now.h[h.id] = HABIT_STEPS.filter(([d]) => h.best >= d).length;
+  for (const s of g.skills) now.s[s.id] = s.validated + (s.sessions ? 1 : 0) * 10;
+  if (seen) {
+    for (const h of g.habits) {
+      const n = now.h[h.id], was = seen.h[h.id] ?? n;
+      if (n > was) { const st = HABIT_STEPS[n - 1]; banner({ icon: h.emoji || '🛑', title: `${st[0]} ${st[0] > 1 ? 'jours' : 'jour'} sans ${h.name} !`, sub: `+${st[1]} XP${st[2] ? ` · ${TIERS[st[2]].name} gagnée` : ''}`, color: '#22c55e', cls: 'gold-ban' }); }
+    }
+    for (const s of g.skills) {
+      const was = seen.s[s.id];
+      if (was === undefined) continue;
+      if (was < 10 && s.sessions) banner({ icon: s.emoji || '🧠', title: `Nouvelle compétence : ${s.name} !`, sub: '+30 XP · première séance', color: '#6366f1' });
+      if (s.validated > was % 10) { const r = STAR_RULES[s.validated]; banner({ icon: '⭐', title: `${s.name} : ${s.validated}★ validées !`, sub: `+${r[1]} XP${r[2] ? ` · ${TIERS[r[2]].name} gagnée` : ''} · ta pratique paie`, color: '#f59e0b', cls: 'gold-ban' }); }
+    }
+  }
+  if (JSON.stringify(now) !== JSON.stringify(seen)) setPref('growth', JSON.stringify(now));
 }
 
 // Nouveau boss en vue

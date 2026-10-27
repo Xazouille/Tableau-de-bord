@@ -4,13 +4,14 @@
 import { S, isDone, valOf, activeDomains } from '../store.js';
 import { key, parseKey, today, todayKey, addDays, weekStart, dayDiff, seeded } from '../util.js';
 import { caseXP, SLEEP_OK_FROM } from '../measures.js';
-import { isPerfect, isGoodDay, bestOf, globalBest, periodScore, dayCount } from '../stats.js';
+import { isPerfect, isGoodDay, bestOf, globalBest, periodScore, dayCount, dayTotal } from '../stats.js';
 import { LINES, FORMS } from './roster.js';
 import { TIERS, TIER_KEYS, kindOf, smallAt, levelRewards } from './tiers.js';
 import { runBosses } from './boss.js';
 import { runMastery } from './mastery.js';
 import { albumState } from './albums.js';
 import { recapWeeks, gradeOf, RECAP_HOUR } from './weekly.js';
+import { skillState, habitState, reviewDone, monthKey, REVIEW_XP } from './growth.js';
 
 export const PERFECT_BONUS = 50, NOTE_XP = 5, VISIT_XP = 10, MEDIA_XP = 50, STEP_XP = 15;
 export const FRAG = { 1: 3, 2: 6, 3: 12, 4: 25, 5: 50 };
@@ -141,7 +142,8 @@ function compute() {
   const earned = { p: 0, c: 0, g: 0 };
   const nDom = activeDomains().length, sAt = smallAt(nDom);
   for (const k of dayKeys) {
-    if (nDom && dayCount(k) >= sAt) earned.p++;
+    const nk = dayTotal(k);
+    if (nk && dayCount(k) >= smallAt(nk)) earned.p++;
     if (isPerfect(k)) earned.c++;
   }
   let xpBadges = 0;
@@ -170,7 +172,15 @@ function compute() {
   const recaps = recapWeeks(since).map(ws => ({ ws: key(ws), grade: gradeOf(periodScore(ws, addDays(ws, 6)).pct) }));
   for (const r of recaps) if (r.grade.box) earned[r.grade.box]++;
 
-  const xp = xpCases + xpBonus + xpGoals + xpMedia + xpBadges + xpChallenges + xpBoss;
+  // Compétences, habitudes arrêtées, bilans du mois remplis
+  const skills = skillState(dayKeys), habits = habitState();
+  const curMonth = monthKey(t);
+  let xpReviews = 0;
+  for (const [mk, r] of Object.entries(S.reviews)) if (mk < curMonth && reviewDone(r) && dayKeys.some(k => k.startsWith(mk))) { xpReviews += REVIEW_XP; earned.c++; }
+  for (const k of TIER_KEYS) earned[k] += skills.boxes[k] + habits.boxes[k];
+  const xpGrowth = skills.xp + habits.xp;
+
+  const xp = xpCases + xpBonus + xpGoals + xpMedia + xpBadges + xpChallenges + xpBoss + xpGrowth + xpReviews;
   const lvl = levelOf(xp);
 
   // Collection : chaque box ouverte donne une famille (au premier stade). Les doublons restent sur la carte,
@@ -279,9 +289,9 @@ function compute() {
 
   return {
     dayXP, caseXPs, money, xp, lvl, title: titleOf(lvl.level),
-    breakdown: { cases: xpCases, bonus: xpBonus, goals: xpGoals, media: xpMedia, badges: xpBadges, challenges: xpChallenges, boss: xpBoss },
+    breakdown: { cases: xpCases, bonus: xpBonus, goals: xpGoals, media: xpMedia, badges: xpBadges, challenges: xpChallenges, boss: xpBoss, growth: xpGrowth, reviews: xpReviews },
     challenges, owned, frags, since4, since5, boxes, boxesEarned, forms, companion, jokers, regressions, evolutions,
-    mediaDone, smallAt: sAt, boss, mastery, recaps, albums, dups, awaken, shinies, fusionCount,
+    mediaDone, smallAt: sAt, boss, mastery, recaps, albums, dups, awaken, shinies, fusionCount, skills: skills.list, habits: habits.list,
     rarityOf: l => (LINES[l] ? LINES[l].rarity : 0),
   };
 }

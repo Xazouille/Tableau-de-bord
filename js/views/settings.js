@@ -9,6 +9,7 @@ export function renderMore() {
   return `<header class="page-head"><h1>Plus</h1></header>
     <div class="hubs">
       ${item('media', '🍿', 'Médiathèque', `${S.media.length} films, livres, mangas, animés, séries`, '#ff4fa3')}
+      ${item('growth', '🌱', 'Progrès', 'Compétences, habitudes à arrêter, bilans du mois', '#22c55e')}
       ${item('vision', '🌅', 'Ma vision', 'Ce que je pense, qui je veux devenir', '#ff8a3d')}
       ${item('settings', '⚙️', 'Réglages', 'Domaines, thème, synchro, sauvegarde', '#4f8cff')}
     </div>`;
@@ -93,9 +94,9 @@ export function sheet(s) {
   const d = s.id ? S.domains.list.find(x => x.id === s.id) : null;
   const v = d || { name: '', emoji: '⭐', hint: '', color: COLORS[S.domains.list.length % COLORS.length], xp: 15, m: { kind: 'none' } };
   const m = v.m || { kind: 'none' };
-  const custom = m.kind === 'levels' && JSON.stringify(m.opts) !== JSON.stringify(TIME_MEASURE.opts);
+  const custom = (m.kind === 'levels' && JSON.stringify(m.opts) !== JSON.stringify(TIME_MEASURE.opts)) || m.kind === 'skill';
   const kind = custom ? 'keep' : m.kind === 'levels' ? 'time' : m.kind;
-  const kinds = [...(custom ? [['keep', `Réglage actuel : ${m.opts.map(o => o[0]).join(' / ')}`]] : []), ['none', 'Juste une case'], ['time', 'Temps passé (15 min → 2 h et +)'], ['list', 'Liste d’objectifs à cocher'], ['money', 'Montant en €']];
+  const kinds = [...(custom ? [['keep', m.kind === 'skill' ? 'Compétence travaillée + temps passé' : `Réglage actuel : ${m.opts.map(o => o[0]).join(' / ')}`]] : []), ['none', 'Juste une case'], ['time', 'Temps passé (15 min → 2 h et +)'], ['list', 'Liste d’objectifs à cocher'], ['money', 'Montant en €']];
   return `<form class="form" data-form="domain" data-type="${kind}">
     <h2>${d ? 'Modifier le domaine' : 'Nouveau domaine'}</h2>
     <div class="grid2 emoji-name"><label class="f">Emoji<input name="emoji" class="emoji-in" maxlength="8" value="${esc(v.emoji)}" required></label>
@@ -183,7 +184,7 @@ export const forms = {
       : f.mkind === 'list' ? { kind: 'list', q: 'Qu’as-tu réussi aujourd’hui ?', items }
       : f.mkind === 'money' ? { kind: 'money', q: 'Total de tous mes comptes' } : { kind: 'none' };
     if (d) Object.assign(d, v);
-    else S.domains.list.splice(S.domains.list.filter(x => !x.archived).length, 0, { id: uid(), archived: false, ...v });
+    else S.domains.list.splice(S.domains.list.filter(x => !x.archived).length, 0, { id: uid(), archived: false, from: todayKey(), ...v });
     ui.sheet = null; domSave(); toast(d ? 'Domaine modifié' : `${v.emoji} ${v.name} ajouté`);
   },
   sync(f) {
