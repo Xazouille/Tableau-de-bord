@@ -1,5 +1,6 @@
 // Apparence : thèmes complets (couleurs, polices, arrondis, en clair et en sombre) et dispositions de l'écran.
-// Chaque thème garde sa propre disposition. Le choix se fait dans Réglages, avec un aperçu de chaque.
+// Les thèmes se débloquent dans le jeu et se choisissent dans Personnaliser (3 dès le départ) ;
+// la disposition se choisit dans Réglages, et chaque thème garde la sienne.
 import { S } from './store.js';
 
 const SHADOW_L = c => `0 1px 2px rgba(${c},.05),0 8px 24px rgba(${c},.08)`;
@@ -30,7 +31,7 @@ export const UIS = [
     light: { bg: '#fff4f7', 'bg-a': '#ffdbe7', 'bg-b': '#f0e0ff', card: '#ffffff', card2: '#fff5f8', text: '#3a1a2a', muted: '#8a6276', faint: '#c09aac', accent: '#d0246f', accent2: '#9b4ae8',
       grad: 'linear-gradient(135deg,#f472b6 0%,#ec4899 45%,#d65ee8 75%,#fb8fa0 100%)', 'lv-bg': 'linear-gradient(135deg,#5b1a3f 0%,#8a2557 55%,#6b2a8a 100%)', ...LINES_L('120,30,70') },
     dark: { bg: '#1a0d14', 'bg-a': '#4a1430', 'bg-b': '#33164a', card: '#26131d', card2: '#311925', text: '#ffeef5', muted: '#d1a3b8', faint: '#8a6576', accent: '#f472b6', accent2: '#c084fc', ...LINES_D } },
-  { id: 'braise', name: 'Braise', desc: 'Orange et or, énergie de combat', fonts: ['Chakra+Petch:wght@500;600;700'],
+  { id: 'saiyan', name: 'Super Saiyan', desc: 'Orange et or, énergie de combat', fonts: ['Chakra+Petch:wght@500;600;700'],
     base: { r: '16px', 'r-sm': '10px', head: '"Chakra Petch","Nunito",system-ui,sans-serif', sans: NUNITO },
     light: { bg: '#fff7ed', 'bg-a': '#ffdfb8', 'bg-b': '#ffd9cc', card: '#ffffff', card2: '#fff5ea', text: '#2b1607', muted: '#8a6a52', faint: '#c2a58f', accent: '#d9480f', accent2: '#d42a2a',
       grad: 'linear-gradient(135deg,#f59e0b 0%,#f97316 45%,#ef4444 75%,#facc15 100%)', 'lv-bg': 'linear-gradient(135deg,#3b1406 0%,#7c2d12 55%,#9a3412 100%)', ...LINES_L('90,40,10') },
@@ -57,7 +58,35 @@ export const UIS = [
     dark: { bg: '#0f1a0f', 'bg-a': '#16281a', 'bg-b': '#0f1a0f', card: '#1a2e1a', card2: '#213a21', text: '#c6e28a', muted: '#8bac0f', faint: '#4f6b2a', accent: '#9bbc0f', accent2: '#8bac0f',
       grad: 'linear-gradient(135deg,#306230 0%,#4b7a2f 100%)', 'lv-bg': 'linear-gradient(135deg,#0f380f 0%,#306230 100%)',
       line: 'rgba(155,188,15,.14)', line2: 'rgba(155,188,15,.26)', cell0: 'rgba(155,188,15,.1)', shadow: '3px 3px 0 rgba(0,0,0,.4)' } },
+  { id: 'lave', name: 'Lave', desc: 'Rouge magma sur roche noire', fonts: ['Oxanium:wght@500;600;700'],
+    base: { r: '16px', 'r-sm': '11px', head: '"Oxanium","Nunito",system-ui,sans-serif', sans: NUNITO },
+    light: { bg: '#fff3ef', 'bg-a': '#ffd3c2', 'bg-b': '#ffe0c7', card: '#ffffff', card2: '#fff3ee', text: '#2a0f08', muted: '#8a5a4c', faint: '#c39a8c', accent: '#c2260e', accent2: '#d9480f',
+      grad: 'linear-gradient(135deg,#7f1d1d 0%,#dc2626 40%,#f97316 75%,#fbbf24 100%)', 'lv-bg': 'linear-gradient(135deg,#2a0606 0%,#5c0f0a 55%,#8a1c0c 100%)', ...LINES_L('90,20,10') },
+    dark: { bg: '#100605', 'bg-a': '#4a0d06', 'bg-b': '#3d1a05', card: '#1d0d0a', card2: '#28120e', text: '#ffece4', muted: '#d29a88', faint: '#8a5d50', accent: '#ff5a36', accent2: '#ff9a3d', ...LINES_D } },
+  { id: 'akatsuki', name: 'Akatsuki', desc: 'Noir et rouge sang, élégant', fonts: ['Shippori+Mincho+B1:wght@600;700;800'],
+    base: { r: '12px', 'r-sm': '8px', head: '"Shippori Mincho B1",Georgia,serif', sans: NUNITO },
+    light: { bg: '#f7f1f1', 'bg-a': '#f1d2d2', 'bg-b': '#ece3e3', card: '#fffdfd', card2: '#f6eeee', text: '#1f0d0d', muted: '#7a5555', faint: '#b89a9a', accent: '#b91c1c', accent2: '#7f1d1d',
+      grad: 'linear-gradient(135deg,#5c0f0f 0%,#b91c1c 50%,#ef4444 100%)', 'lv-bg': 'linear-gradient(135deg,#140606 0%,#3a0b0b 60%,#5c1010 100%)', ...LINES_L('70,10,10') },
+    dark: { bg: '#0c0606', 'bg-a': '#3a0b0b', 'bg-b': '#1a0a0a', card: '#170c0c', card2: '#211111', text: '#f8eaea', muted: '#c49b9b', faint: '#7d5c5c', accent: '#ef4444', accent2: '#f87171', ...LINES_D } },
+  { id: 'galaxie', name: 'Galaxie', desc: 'Indigo, violet et cyan, sous les étoiles', fonts: ['Orbitron:wght@600;700'],
+    base: { r: '20px', 'r-sm': '13px', head: '"Orbitron","Nunito",system-ui,sans-serif', sans: NUNITO },
+    light: { bg: '#f2f1ff', 'bg-a': '#d9d5ff', 'bg-b': '#d3f1fa', card: '#ffffff', card2: '#f3f2ff', text: '#17123a', muted: '#5f5a8c', faint: '#9f9bc4', accent: '#5b3fd9', accent2: '#0882a3',
+      grad: 'linear-gradient(135deg,#4f46e5 0%,#8b5cf6 45%,#06b6d4 80%,#a855f7 100%)', 'lv-bg': 'linear-gradient(135deg,#0f0b3a 0%,#2a1873 55%,#0c4a6e 100%)', ...LINES_L('30,20,110') },
+    dark: { bg: '#070616', 'bg-a': '#1e1660', 'bg-b': '#062a40', card: '#110e2e', card2: '#18143d', text: '#eeeaff', muted: '#a39fd6', faint: '#625e94', accent: '#a78bfa', accent2: '#22d3ee', ...LINES_D } },
+  { id: 'glace', name: 'Glace', desc: 'Bleu glacier et blanc givré', fonts: ['Exo+2:wght@600;700'],
+    base: { r: '18px', 'r-sm': '12px', head: '"Exo 2","Nunito",system-ui,sans-serif', sans: NUNITO },
+    light: { bg: '#f2f8fc', 'bg-a': '#d4eafa', 'bg-b': '#e0e7fb', card: '#ffffff', card2: '#f2f8fd', text: '#0c2233', muted: '#557085', faint: '#94abbd', accent: '#0369a1', accent2: '#5457e0',
+      grad: 'linear-gradient(135deg,#0284c7 0%,#38bdf8 45%,#818cf8 75%,#a5f3fc 100%)', 'lv-bg': 'linear-gradient(135deg,#0b2a45 0%,#134e7a 55%,#3730a3 100%)', ...LINES_L('10,50,90') },
+    dark: { bg: '#06111b', 'bg-a': '#0c2d4a', 'bg-b': '#1a1f4d', card: '#0d1b29', card2: '#132536', text: '#e8f6ff', muted: '#93b6cc', faint: '#57768a', accent: '#7dd3fc', accent2: '#a5b4fc', ...LINES_D } },
+  { id: 'prisme', name: 'Prisme', desc: 'Arc-en-ciel, ultra coloré', fonts: ['Baloo+2:wght@600;700;800'],
+    base: { r: '24px', 'r-sm': '16px', head: '"Baloo 2","Nunito",system-ui,sans-serif', sans: NUNITO },
+    light: { bg: '#fbf7ff', 'bg-a': '#ffdcee', 'bg-b': '#d9f4ff', card: '#ffffff', card2: '#faf6ff', text: '#251a3a', muted: '#74688e', faint: '#b0a6c4', accent: '#b01fc2', accent2: '#0b8fcc',
+      grad: 'linear-gradient(135deg,#ff4fa3 0%,#f59e0b 35%,#22c55e 65%,#3b82f6 100%)', 'lv-bg': 'linear-gradient(135deg,#3b1d6e 0%,#7c1d6f 50%,#0e5e7a 100%)', ...LINES_L('60,30,110') },
+    dark: { bg: '#0f0b1a', 'bg-a': '#3d1440', 'bg-b': '#0b3346', card: '#1a1429', card2: '#221a35', text: '#f7f0ff', muted: '#b5a8d0', faint: '#6f6590', accent: '#f472b6', accent2: '#38bdf8', ...LINES_D } },
 ];
+// Ordre d'affichage : les 3 thèmes de base, puis dans l'ordre où ils se débloquent
+const ORDER = ['neon', 'minuit', 'papier', 'ocean', 'saiyan', 'sakura', 'foret', 'lave', 'akatsuki', 'gameboy', 'galaxie', 'glace', 'prisme'];
+UIS.sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id));
 
 export const LAYOUTS = [
   { id: 'classique', name: 'Classique', desc: 'Grandes cases sur 2 colonnes' },
@@ -67,8 +96,7 @@ export const LAYOUTS = [
 ];
 
 export const uiOf = id => UIS.find(u => u.id === id) || UIS[0];
-export const curUI = () => uiOf(S.settings.ui).id;
-export const curLayout = (id = curUI()) => ((S.settings.layouts || {})[id] && LAYOUTS.some(l => l.id === S.settings.layouts[id])) ? S.settings.layouts[id] : 'classique';
+export const curLayout = id => ((S.settings.layouts || {})[id] && LAYOUTS.some(l => l.id === S.settings.layouts[id])) ? S.settings.layouts[id] : 'classique';
 // Mode affiché : réglage Clair / Sombre, sinon celui du téléphone
 export const isDark = () => S.settings.theme === 'dark' || (S.settings.theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
 // Tokens complets d'un thème dans un mode (le sombre reprend ce que le clair définit et qu'il ne redéfinit pas)
@@ -94,9 +122,10 @@ export function loadFonts(list) {
   document.head.appendChild(l);
 }
 let injected = false;
-export function applyUI() {
+// Applique le thème porté (choisi dans Personnaliser) et sa disposition
+export function applyUI(themeId) {
   if (!injected) { const st = document.createElement('style'); st.id = 'ui-themes'; st.textContent = css(); document.head.appendChild(st); injected = true; }
-  const de = document.documentElement, id = curUI(), lay = curLayout(id);
+  const de = document.documentElement, id = uiOf(themeId).id, lay = curLayout(id);
   if (de.dataset.ui !== id) { de.dataset.ui = id; loadFonts([uiOf(id)]); }
   if (de.dataset.layout !== lay) de.dataset.layout = lay;
 }

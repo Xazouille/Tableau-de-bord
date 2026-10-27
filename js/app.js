@@ -10,7 +10,6 @@ import { TIERS, TIER_KEYS, levelRewards } from './game/tiers.js';
 import { RANKS, rankOf } from './game/mastery.js';
 import { records, recapReady, weekRecap } from './game/weekly.js';
 import { worn, applyLook } from './game/cosmetics.js';
-import { applyUI } from './looks.js';
 import { globalBest, domainBest } from './stats.js';
 import { confetti } from './fx.js';
 import { todayKey, dayDiff, key, today as todayD, addDays, weekStart } from './util.js';
@@ -65,7 +64,6 @@ function render() {
 
   const th = S.settings.theme;
   if (th === 'light' || th === 'dark') document.documentElement.dataset.theme = th; else delete document.documentElement.dataset.theme;
-  applyUI();
   applyLook(worn(G()).theme);
   const navTab = ['media', 'vision', 'settings', 'growth'].includes(ui.tab) ? 'more' : ui.tab;
   document.querySelectorAll('nav.tabs [data-tab]').forEach(b => {

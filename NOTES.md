@@ -86,7 +86,8 @@ Une motivation uniquement « pour le jeu » finit par s'user (effet nouveauté, 
 - **Mur des victoires** : premières fois, nouveaux paliers, séries, journées parfaites, habitudes, étoiles, identités, rangs, objectifs, œuvres terminées, victoires notées (bouton « 🏅 C'est une victoire » sous la phrase du jour).
 - **Plans « si… alors… »** par case, affichés sur la case, dans sa fiche et le matin.
 - **Sommeil régulier** : « couché à mon heure (± 30 min) » = +10 XP, rappel 1 h avant l'heure de coucher, badges.
-- **Apparence** (Réglages → 🎨 Apparence) : 8 thèmes complets (Néon, Océan, Forêt, Sakura, Braise, Minuit, Papier, Game Boy), chacun en clair et en sombre, avec ses couleurs, polices et arrondis ; 4 dispositions (Classique, Liste, Mosaïque, Épurée), mémorisées pour chaque thème ; aperçu miniature de chaque choix, appliqué en direct. Défini dans `js/looks.js` (tokens CSS injectés, `data-ui` et `data-layout` sur `<html>`). Les « thèmes » débloqués dans le jeu (Personnaliser) recolorent par-dessus ; choisir un thème d'Apparence les retire.
+- **Thèmes** (Jeu → Personnaliser → Thèmes) : 13 thèmes complets (couleurs, police, arrondis, en clair et en sombre), avec un aperçu de l'écran d'accueil pour chacun. **3 dès le départ** (Néon, Minuit, Papier), les autres **se débloquent** : Océan niv. 5, Super Saiyan niv. 10, Sakura niv. 15, Forêt rang Confirmé, Lave 5 boss, Akatsuki album Akatsuki, Game Boy badge 100 cartes, Galaxie niv. 25, Glace série de 30 jours, Prisme 10 brillantes. Définis dans `js/looks.js` (tokens CSS injectés, `data-ui` sur `<html>`), conditions dans `js/game/cosmetics.js`.
+- **Disposition** (Réglages → 🎨 Apparence, libre) : Classique, Liste, Mosaïque, Épurée, mémorisée pour chaque thème (`S.settings.layouts`, `data-layout` sur `<html>`), avec aperçus. Le mode Auto / Clair / Sombre est dans la même carte.
 - **Bienveillance** : après une série cassée, carte « 🌱 » au lieu d'un simple compteur à zéro ; en cochant, rappel du « pourquoi » (progrès réel ou phrase de la vision).
 
 ---
@@ -129,7 +130,7 @@ Recherche faite en octobre 2026 pour savoir si cette motivation « par le jeu »
 3. PR #3 : 3 types de box + invocation animée, boss, maîtrise, fusion des doublons, brillantes, albums, bilan du dimanche, records, « presque ! », humeur et découvertes, recherche dans la collection, titres/cadres/thèmes, compagnon interactif.
 4. PR #4 : nouvelles cases (Pas, Journal, Compétence, Rangement, Hygiène), page Progrès (compétences, habitudes, bilans du mois), minuteur ; puis identités, mur des victoires, plans si… alors…, défis au choix, sommeil régulier, bienveillance, rappel du pourquoi, « pour toi ou pour le jeu ? ».
 
-6. Apparence : 8 thèmes et 4 dispositions avec aperçus (octobre 2026).
+6. Thèmes complets à débloquer (13, dont 3 de base) et 4 dispositions avec aperçus (octobre 2026).
 5. Journée parfaite à 12/15, compteurs d'habitudes sur l'accueil, identités sur 11 paliers (~4 ans), cartes Pokémon full art récentes.
 
 ---

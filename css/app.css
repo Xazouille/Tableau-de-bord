@@ -1522,3 +1522,12 @@ form[data-type=list] .if-list{display:block}
 /* Les autres thèmes recolorent aussi la bannière des box */
 :root[data-ui]:not([data-ui="neon"]) .box-banner{background:linear-gradient(120deg,color-mix(in oklab,var(--accent) 65%,#000) 0%,color-mix(in oklab,var(--accent2) 80%,#000) 55%,#e0900b 100%);box-shadow:0 8px 24px color-mix(in oklab,var(--accent) 30%,transparent)}
 .pv-lv em{font:700 8px/1 var(--p-head);color:#fff;font-style:normal}
+/* Personnaliser : thèmes avec aperçu */
+.lk-grid.th-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (min-width: 640px){ .lk-grid.th-grid{grid-template-columns:repeat(3,minmax(0,1fr))} }
+.th-grid .lk-theme{align-items:stretch;text-align:left;padding:6px 6px 10px;gap:4px}
+.th-grid .lk-theme b{margin:3px 4px 0}
+.th-grid .lk-theme small{margin:0 4px}
+.th-grid .lk-theme.locked{opacity:1}
+.th-grid .lk-theme.locked .pv{filter:grayscale(.85);opacity:.45}
+.ui-card .row{margin-top:12px}

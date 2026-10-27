@@ -4,26 +4,30 @@ import { ui, ico, toast, openSheet, closeSheet } from '../ui.js';
 import { esc, todayKey, uid, fmtShort } from '../util.js';
 import { TIME_MEASURE } from '../measures.js';
 import { perfectNeed } from '../stats.js';
-import { UIS, LAYOUTS, uiOf, curUI, curLayout, preview, loadFonts } from '../looks.js';
+import { UIS, LAYOUTS, uiOf, curLayout, preview, loadFonts } from '../looks.js';
+import { G } from '../game/rules.js';
+import { worn, LOOKS, unlockCtx, isUnlocked } from '../game/cosmetics.js';
 
-// Apparence : le thème et la disposition en cours, et le mode clair / sombre
+// Apparence : le thème porté (choisi dans Jeu → Personnaliser), la disposition et le mode clair / sombre
 const modeSegs = (act = 'theme') => { const th = S.settings.theme || 'auto'; return `<div class="segs">${[['auto', '🌗 Auto'], ['light', '☀️ Clair'], ['dark', '🌙 Sombre']].map(([id, l]) => `<button class="seg ${th === id ? 'on' : ''}" data-act="${act}" data-t="${id}">${l}</button>`).join('')}</div>`; };
+const curTheme = () => uiOf(worn(G()).theme.id);
 function uiCard() {
-  const u = uiOf(curUI()), lay = LAYOUTS.find(l => l.id === curLayout());
-  return `<section class="card ui-card"><div class="c-head"><h2>🎨 Apparence</h2><button class="link-btn" data-act="uiOpen">Changer ›</button></div>
-    <button class="ui-now" data-act="uiOpen">${preview(u, lay.id)}<span><b>${u.name}</b><small>${u.desc}</small><small class="ui-lay">Disposition : ${lay.name}</small></span></button>
+  const u = curTheme(), lay = LAYOUTS.find(l => l.id === curLayout(u.id)), c = unlockCtx(G());
+  const n = LOOKS.filter(l => isUnlocked(l.need, c)).length;
+  return `<section class="card ui-card"><h2>🎨 Apparence</h2>
+    <div class="ui-now">${preview(u, lay.id)}<span><b>${u.name}</b><small>${u.desc}</small><small class="ui-lay">Disposition : ${lay.name}</small>
+      <small>${n}/${LOOKS.length} thèmes débloqués</small></span></div>
+    <div class="row"><button class="btn sm" data-act="lookThemes">🎨 Changer de thème</button><button class="btn sm" data-act="uiOpen">📐 Changer de disposition</button></div>
     <div class="f"><span>Mode</span>${modeSegs()}</div></section>`;
 }
 export function uiSheet() {
-  loadFonts(UIS);
-  const cur = uiOf(curUI()), lay = curLayout();
-  return `<div class="ui-sheet"><h2>🎨 Apparence</h2>
-    <p class="muted small">Touche un thème ou une disposition : l’appli change tout de suite. Chaque thème garde sa propre disposition.</p>
+  const cur = curTheme(), lay = curLayout(cur.id);
+  loadFonts([cur]);
+  return `<div class="ui-sheet"><h2>📐 Disposition</h2>
+    <p class="muted small">Touche une disposition : l’appli change tout de suite. Elle est gardée pour le thème <b>${cur.name}</b> ; chaque thème a la sienne.</p>
     ${modeSegs('uiMode')}
-    <p class="eyebrow ui-sec">Thème</p>
-    <div class="ui-grid">${UIS.map(u => `<button class="ui-opt ${u.id === cur.id ? 'on' : ''}" data-act="uiSet" data-id="${u.id}" aria-pressed="${u.id === cur.id}">${preview(u, curLayout(u.id))}<b>${u.name}</b><small>${u.desc}</small></button>`).join('')}</div>
-    <p class="eyebrow ui-sec">Disposition pour ${cur.name}</p>
     <div class="ui-grid">${LAYOUTS.map(l => `<button class="ui-opt ${l.id === lay ? 'on' : ''}" data-act="layoutSet" data-id="${l.id}" aria-pressed="${l.id === lay}">${preview(cur, l.id)}<b>${l.name}</b><small>${l.desc}</small></button>`).join('')}</div>
+    <button class="btn ghost full" data-act="lookThemes">🎨 Changer de thème (Personnaliser)</button>
     <button class="btn primary full" data-act="closeSheet">C’est bon</button></div>`;
 }
 
@@ -174,14 +178,9 @@ const domSave = () => { touch(S.domains); save(); };
 export const actions = {
   theme(el) { S.settings.theme = el.dataset.t; touch(S.settings); save(); },
   uiOpen() { openSheet({ kind: 'ui' }); },
+  lookThemes() { ui.lookTab = 'theme'; openSheet({ kind: 'look' }); },
   uiMode(el) { S.settings.theme = el.dataset.t; touch(S.settings); save(); ui.sheet = { ...ui.sheet }; },
-  // Nouveau thème : la couleur bonus du jeu (Personnaliser) est retirée pour qu'il s'affiche tel quel
-  uiSet(el) {
-    S.settings.ui = el.dataset.id;
-    if (S.settings.look && S.settings.look.theme) S.settings.look = { ...S.settings.look, theme: '' };
-    touch(S.settings); save(); ui.sheet = { ...ui.sheet };
-  },
-  layoutSet(el) { S.settings.layouts = { ...(S.settings.layouts || {}), [curUI()]: el.dataset.id }; touch(S.settings); save(); ui.sheet = { ...ui.sheet }; },
+  layoutSet(el) { S.settings.layouts = { ...(S.settings.layouts || {}), [curTheme().id]: el.dataset.id }; touch(S.settings); save(); ui.sheet = { ...ui.sheet }; },
   domNew() { openSheet({ kind: 'domain' }); },
   domEdit(el) { openSheet({ kind: 'domain', id: el.dataset.id }); },
   domMove(el) {

@@ -7,6 +7,7 @@ import { startBox, showFusion } from '../game/opening.js';
 import { TIERS, TIER_KEYS, PITY4, PITY5 } from '../game/tiers.js';
 import { RANKS, MAX_LEVEL } from '../game/mastery.js';
 import { worn, LOOKS, FRAMES, titleList, unlockCtx, isUnlocked, howTo } from '../game/cosmetics.js';
+import { UIS, uiOf, curLayout, preview, loadFonts } from '../looks.js';
 import { dayCount, visionSentences, perfectNeed } from '../stats.js';
 import { nudges } from '../nudges.js';
 import { speech, burst } from '../fx.js';
@@ -212,8 +213,11 @@ export function lookSheet() {
     body = `<div class="lk-grid">${FRAMES.map(f => { const ok = isUnlocked(f.need, c); return `<button class="lk-frame ${w.frame.id === f.id ? 'on' : ''} ${ok ? '' : 'locked'}" ${ok ? `data-act="lookSet" data-kind="frame" data-id="${f.id}"` : 'disabled'}>
       <span class="lv-avatar fr-${f.id} demo"><span class="av-frame"></span>${g.companion ? `<img src="${esc(g.companion.form.img)}" alt="" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">` : '<span>🐾</span>'}</span><b>${esc(f.name)}</b><small>${ok ? 'Débloqué' : `🔒 ${esc(howTo(f.need))}`}</small></button>`; }).join('')}</div>`;
   } else {
-    body = `<div class="lk-grid">${LOOKS.map(t => { const ok = isUnlocked(t.need, c); return `<button class="lk-theme ${w.theme.id === t.id ? 'on' : ''} ${ok ? '' : 'locked'}" ${ok ? `data-act="lookSet" data-kind="theme" data-id="${t.id}"` : 'disabled'}>
-      <span class="lk-swatch" style="background:linear-gradient(135deg,${t.colors.join(',')})"></span><b>${esc(t.name)}</b><small>${ok ? 'Débloqué' : `🔒 ${esc(howTo(t.need))}`}</small></button>`; }).join('')}</div>`;
+    // Thèmes complets avec un aperçu de l'écran d'accueil (dans la disposition choisie pour chacun)
+    loadFonts(UIS);
+    body = `<p class="muted small">Chaque thème change les couleurs, la police et les arrondis de toute l’appli. La disposition se règle dans Réglages → Apparence.</p>
+      <div class="lk-grid th-grid">${LOOKS.map(t => { const ok = isUnlocked(t.need, c); return `<button class="lk-theme ${w.theme.id === t.id ? 'on' : ''} ${ok ? '' : 'locked'}" ${ok ? `data-act="lookSet" data-kind="theme" data-id="${t.id}"` : 'disabled'}>
+      ${preview(uiOf(t.id), curLayout(t.id))}<b>${ok ? '' : '🔒 '}${esc(t.name)}</b><small>${ok ? esc(t.desc) : esc(howTo(t.need))}</small></button>`; }).join('')}</div>`;
   }
   return `<div class="look-sheet"><h2>🎨 Personnaliser</h2>
     <div class="segs">${tabs.map(([id, l]) => `<button class="seg ${tab === id ? 'on' : ''}" data-act="lookTab" data-t="${id}">${l}</button>`).join('')}</div>

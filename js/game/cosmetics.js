@@ -3,20 +3,12 @@ import { S } from '../store.js';
 import { G, badgeDefs, LEVEL_TITLES } from './rules.js';
 import { RANKS } from './mastery.js';
 import { ALBUMS } from './albums.js';
+import { UIS, applyUI } from '../looks.js';
 
-// [id, nom, 4 couleurs du dégradé, condition]
-export const LOOKS = [
-  ['neon', 'Néon', ['#7c5cff', '#c34dff', '#ff4fa3', '#ff9a3d'], null],
-  ['ocean', 'Océan', ['#0ea5e9', '#14b8a6', '#6366f1', '#22d3ee'], { level: 5 }],
-  ['saiyan', 'Super Saiyan', ['#f59e0b', '#facc15', '#f97316', '#fde047'], { level: 10 }],
-  ['sakura', 'Sakura', ['#ec4899', '#f472b6', '#e879f9', '#fb7185'], { level: 15 }],
-  ['foret', 'Forêt', ['#16a34a', '#22c55e', '#84cc16', '#14b8a6'], { rank: 3 }],
-  ['lave', 'Lave', ['#dc2626', '#f97316', '#ef4444', '#fbbf24'], { bosses: 5 }],
-  ['akatsuki', 'Akatsuki', ['#b91c1c', '#ef4444', '#7f1d1d', '#f87171'], { album: 'na-akatsuki' }],
-  ['galaxie', 'Galaxie', ['#4f46e5', '#8b5cf6', '#06b6d4', '#a855f7'], { level: 25 }],
-  ['glace', 'Glace', ['#0284c7', '#38bdf8', '#818cf8', '#67e8f9'], { badge: 'serie30' }],
-  ['prisme', 'Prisme', ['#ff4fa3', '#f59e0b', '#22c55e', '#3b82f6'], { shinies: 10 }],
-].map(([id, name, colors, need]) => ({ id, name, colors, need }));
+// Thèmes complets (définis dans looks.js) : 3 dès le départ, les autres à débloquer
+const LOOK_NEED = { ocean: { level: 5 }, saiyan: { level: 10 }, sakura: { level: 15 }, foret: { rank: 3 }, lave: { bosses: 5 }, akatsuki: { album: 'na-akatsuki' },
+  gameboy: { badge: 'coll100' }, galaxie: { level: 25 }, glace: { badge: 'serie30' }, prisme: { shinies: 10 } };
+export const LOOKS = UIS.map(u => ({ id: u.id, name: u.name, desc: u.desc, need: LOOK_NEED[u.id] || null }));
 
 export const FRAMES = [
   ['simple', 'Simple', null], ['eclair', 'Éclairs', { level: 8 }], ['feu', 'Flammes', { badge: 'serie7' }], ['givre', 'Givre', { badge: 'serie14' }],
@@ -94,16 +86,5 @@ export function worn(g = G()) {
   return { theme, frame, title: t ? t.name : g.title };
 }
 
-// Couleurs du thème porté, appliquées à toute l'appli
-export function applyLook(theme) {
-  const st = document.documentElement.style;
-  const props = ['--accent', '--accent2', '--grad', '--bg-a', '--bg-b', '--lv-bg'];
-  if (!theme || theme.id === 'neon') { props.forEach(p => st.removeProperty(p)); return; }
-  const [a, b, c, d] = theme.colors;
-  st.setProperty('--accent', `color-mix(in oklab,${a} 82%,var(--text))`);
-  st.setProperty('--accent2', `color-mix(in oklab,${c} 85%,var(--text))`);
-  st.setProperty('--grad', `linear-gradient(135deg,${a} 0%,${b} 45%,${c} 75%,${d} 100%)`);
-  st.setProperty('--bg-a', `color-mix(in oklab,${a} 26%,var(--bg))`);
-  st.setProperty('--bg-b', `color-mix(in oklab,${c} 20%,var(--bg))`);
-  st.setProperty('--lv-bg', `linear-gradient(135deg,color-mix(in oklab,${a} 40%,#120a2a) 0%,color-mix(in oklab,${b} 38%,#1a0b30) 55%,color-mix(in oklab,${c} 45%,#2a0b30) 100%)`);
-}
+// Thème porté : appliqué à toute l'appli (avec la disposition choisie pour lui)
+export function applyLook(theme) { applyUI(theme ? theme.id : 'neon'); }
