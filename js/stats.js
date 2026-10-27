@@ -6,7 +6,9 @@ import { key, parseKey, today, addDays, weekStart } from './util.js';
 export const dayTotal = k => domainsOn(k).length;
 export const dayCount = k => domainsOn(k).filter(d => isDone(k, d.id)).length;
 export const dayRatio = k => { const n = dayTotal(k); return n ? dayCount(k) / n : 0; };
-export const isPerfect = k => { const n = dayTotal(k); return n > 0 && dayCount(k) === n; };
+// Journée parfaite : 80 % des cases (12 sur 15), réglable dans Réglages
+export const perfectNeed = n => Math.max(1, Math.min(n, Math.ceil(n * (S.settings.perfect || 0.8) - 1e-9)));
+export const isPerfect = k => { const n = dayTotal(k); return n > 0 && dayCount(k) >= perfectNeed(n); };
 // Jour sauvé par un joker (module de jeu)
 export const isJoker = k => !!(S.game.jokerDays && S.game.jokerDays[k]);
 // Journée « réussie » : assez de cases cochées pour faire vivre la série globale

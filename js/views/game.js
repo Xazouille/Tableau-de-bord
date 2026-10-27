@@ -7,7 +7,7 @@ import { startBox, showFusion } from '../game/opening.js';
 import { TIERS, TIER_KEYS, PITY4, PITY5 } from '../game/tiers.js';
 import { RANKS, MAX_LEVEL } from '../game/mastery.js';
 import { worn, LOOKS, FRAMES, titleList, unlockCtx, isUnlocked, howTo } from '../game/cosmetics.js';
-import { dayCount, visionSentences } from '../stats.js';
+import { dayCount, visionSentences, perfectNeed } from '../stats.js';
 import { nudges } from '../nudges.js';
 import { speech, burst } from '../fx.js';
 import { ui, ico, toast, openSheet, closeSheet, pref, setPref } from '../ui.js';
@@ -20,7 +20,7 @@ const MOOD_ICO = { joy: '🤩', happy: '😊', calm: '🙂', worried: '😟', sl
 export function compMood(g = G()) {
   if (!g.companion) return 'none';
   const n = activeDomains().length, c = dayCount(todayKey()), h = new Date().getHours(), r = n ? c / n : 0;
-  if (n && c === n) return 'joy';
+  if (n && c >= perfectNeed(n)) return 'joy';
   if (h >= 23 || h < 6) return 'sleep';
   if (r >= 0.5) return 'happy';
   if (h >= 18 && r < 0.3) return 'worried';

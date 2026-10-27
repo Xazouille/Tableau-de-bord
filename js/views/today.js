@@ -1,6 +1,6 @@
 // Écran « Aujourd'hui » : les cases du jour, l'anneau de progression, la phrase du jour.
 import { S, save, isDone, setDone, setNote, setMood, valOf, setVal, activeDomains, domainsOn, touch, newId } from '../store.js';
-import { dayCount, globalStreak, globalBest, domainStreak, isPerfect, isGoodDay, isJoker, visionSentences } from '../stats.js';
+import { dayCount, globalStreak, globalBest, domainStreak, isPerfect, perfectNeed, isGoodDay, isJoker, visionSentences } from '../stats.js';
 import { G, PERFECT_BONUS, SLEEP_REG_XP, chalOpen } from '../game/rules.js';
 import { IDENT_AT } from '../game/identity.js';
 import { levelCard, bossCard } from './game.js';
@@ -91,19 +91,26 @@ function whyLine(d) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+// Habitudes arrêtées : le nombre de jours, visible dès l'accueil
+function habitStrip(k) {
+  const hs = k === todayKey() ? G().habits : [];
+  return hs.length ? `<div class="hb-strip">${hs.map(h => `<button class="hb-chip ${h.fellToday ? 'fell' : ''}" data-act="habitsOpen" title="Record : ${plural(h.best, 'jour', 'jours')}">
+    <span class="hbc-emoji">${esc(h.emoji || '🛑')}</span><span><b>${h.cur}</b> <small>${h.cur > 1 ? 'jours' : 'jour'} sans</small><small class="hbc-name">${esc(h.name)}</small></span></button>`).join('')}</div>` : '';
+}
+
 function hero(k, n, c) {
   const pct = n ? c / n : 0, R = 52, C = 2 * Math.PI * R;
-  const st = globalStreak(), perfect = isPerfect(k), isToday = k === todayKey();
+  const st = globalStreak(), perfect = isPerfect(k), isToday = k === todayKey(), need = perfectNeed(n);
   const rnd = seeded(k);
-  const msg = perfect ? 'Journée parfaite ! Tu es une machine 🏆'
+  const msg = perfect ? (c < n ? `Journée parfaite ! Encore ${plural(n - c, 'case', 'cases')} pour tout cocher 🏆` : 'Journée parfaite et tout coché ! Tu es une machine 🏆')
     : c === 0 ? CHEERS0[Math.floor(rnd() * CHEERS0.length)]
-    : n - c <= 2 ? `Plus que ${plural(n - c, 'case', 'cases')} pour une journée parfaite (+${PERFECT_BONUS} XP) !`
+    : need - c <= 2 ? `Plus que ${plural(need - c, 'case', 'cases')} pour une journée parfaite (+${PERFECT_BONUS} XP) !`
     : pct < 0.5 ? CHEERS_LOW[Math.floor(rnd() * CHEERS_LOW.length)]
     : CHEERS[Math.floor(rnd() * CHEERS.length)];
   const xp = G().dayXP[k] || 0;
   // Prochaine box du jour : petite à 5 cases, classique quand tout est coché
   const sAt = G().smallAt;
-  const boxChip = !n ? '' : perfect ? '🎁 2 box gagnées' : c >= sAt ? `🎁 ${c}/${n} → box classique` : `🎁 ${c}/${sAt} → petite box`;
+  const boxChip = !n ? '' : perfect ? '🎁 2 box gagnées' : c >= sAt ? `🎁 ${c}/${need} → box classique` : `🎁 ${c}/${sAt} → petite box`;
   return `<section class="hero ${perfect ? 'perfect' : ''}">
     <div class="ring" role="img" aria-label="${c} sur ${n}">
       <svg viewBox="0 0 120 120"><defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#ffe680"/></linearGradient></defs>
@@ -175,6 +182,7 @@ export function render() {
     ${comp && comp.badStreak >= 1 && k === todayKey() ? `<p class="comp-warn">⚠️ ${esc(comp.form.name)} est en danger : coche École, Sommeil (7 h+) ou Alimentation aujourd’hui.</p>` : ''}
     <div class="segs days">${days}</div>
     ${hero(k, n, c)}
+    ${habitStrip(k)}
     ${nudgeStrip(k)}
     ${bossCard(true)}
     ${jokerOffer()}
@@ -322,6 +330,7 @@ export const actions = {
     if (cur !== v) { burst(el, '#f5b700'); buzz(10); }
   },
   shuffleQuote() { ui.quoteShift = (ui.quoteShift || 0) + 1; },
+  habitsOpen() { ui.tab = 'growth'; ui.growthTab = 'habits'; setPref('tab', 'growth'); scrollTo({ top: 0 }); },
   kindOk(el) { setPref('kindSeen', el.dataset.k); buzz(15); },
   chalOpen() { openSheet({ kind: 'chal' }); },
   plansOpen() { openSheet({ kind: 'plans' }); },

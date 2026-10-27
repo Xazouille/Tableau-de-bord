@@ -50,7 +50,7 @@ export function defaults() {
     v: 2,
     meta: { modified: 0 },
     profile: { name: 'Aaron', start: todayKey(), u: 0 },
-    settings: { theme: 'auto', threshold: 0.5, u: 0 },
+    settings: { theme: 'auto', threshold: 0.5, perfect: 0.8, u: 0 },
     domains: { list: DEFAULT_DOMAINS.map(d => ({ ...d })), added: [...NEW_DOMAINS], u: 0 },
     days: {},
     goals: [],

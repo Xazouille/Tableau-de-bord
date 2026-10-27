@@ -3,6 +3,7 @@ import { S, save, touch, sync, enableSync, disableSync, syncNow, replaceAll, res
 import { ui, ico, toast, openSheet, closeSheet } from '../ui.js';
 import { esc, todayKey, uid, fmtShort } from '../util.js';
 import { TIME_MEASURE } from '../measures.js';
+import { perfectNeed } from '../stats.js';
 
 export function renderMore() {
   const item = (tab, emoji, title, sub, c) => `<button class="hub" style="--c:${c}" data-act="tab" data-tab="${tab}"><span class="hub-emoji">${emoji}</span><span><b>${title}</b><small>${sub}</small></span>${ico('chev')}</button>`;
@@ -60,6 +61,7 @@ function domainsCard() {
 
 export function render() {
   const th = S.settings.theme || 'auto', thr = Math.round((S.settings.threshold || 0.5) * 100);
+  const nDom = S.domains.list.filter(d => !d.archived).length, pNeed = perfectNeed(nDom);
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const install = standalone ? '<p class="muted">✓ Tu utilises l’appli installée. Elle marche aussi sans internet.</p>'
@@ -74,6 +76,8 @@ export function render() {
       <div class="f"><span>Thème</span><div class="segs">${[['auto', '🌗 Auto'], ['light', '☀️ Clair'], ['dark', '🌙 Sombre']].map(([id, l]) => `<button class="seg ${th === id ? 'on' : ''}" data-act="theme" data-t="${id}">${l}</button>`).join('')}</div></div>
       <label class="f">Une journée compte pour la série 🔥 à partir de <b>${thr} %</b> des cases
         <input type="range" min="10" max="100" step="10" value="${thr}" data-input="threshold"></label>
+      <label class="f">Journée parfaite 🏆 à partir de <b>${pNeed} cases sur ${nDom}</b>
+        <input type="range" min="${Math.ceil(nDom / 2)}" max="${nDom}" step="1" value="${pNeed}" data-input="perfectAt"></label>
     </section>
     ${domainsCard()}
     </div><div>
@@ -174,6 +178,8 @@ export const inputs = {
   domKind(el) { el.form.dataset.type = el.value; },
   name(el) { S.profile.name = el.value.trim(); touch(S.profile); save(); },
   threshold(el) { S.settings.threshold = Number(el.value) / 100; touch(S.settings); save(); },
+  // Journée parfaite : enregistrée en proportion (12 sur 15 = 80 %), pour rester juste si on ajoute des cases
+  perfectAt(el) { const n = S.domains.list.filter(d => !d.archived).length; S.settings.perfect = Number(el.value) / n; touch(S.settings); save(); },
 };
 export const forms = {
   domain(f) {

@@ -60,7 +60,7 @@ function identity() {
   const g = G(), list = activeDomains().map(d => ({ d, id: g.identity[d.id] })).filter(x => x.id).sort((a, b) => b.id.stage - a.id.stage || b.id.n - a.id.n);
   const now = list.filter(x => x.id.stage);
   return `<section class="card"><h2>🪪 Qui je suis</h2>
-      <p class="muted small">Chaque jour où tu coches une case, tu deviens un peu plus cette personne. 7 paliers par domaine (${IDENT_AT.join(', ')} jours), jamais perdus : chaque palier rapporte de l’XP et devient un titre que tu peux porter.</p>
+      <p class="muted small">Chaque jour où tu coches une case, tu deviens un peu plus cette personne. ${IDENT_AT.length} paliers par domaine (${IDENT_AT.join(', ')} jours, soit environ 4 ans), jamais perdus : chaque palier rapporte de l’XP et devient un titre que tu peux porter.</p>
       ${now.length ? `<div class="id-now">${now.slice(0, 6).map(x => `<span class="id-chip" style="--c:${x.d.color}">${x.d.emoji} ${esc(x.id.name)}</span>`).join('')}</div>` : '<p class="muted small">Coche tes cases 3 jours dans un domaine pour ta première identité.</p>'}
     </section>
     <div class="id-list">${list.map(({ d, id }) => {
