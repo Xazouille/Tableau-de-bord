@@ -12,6 +12,8 @@ node tools/tests/smoke.js /tmp/shots IMAGES [desktop]
 - `growthtest.js` : migration vers les nouvelles cases, compétences, habitudes, minuteur, bilan du mois.
 - `flows.js`, `summon.js`, `midclose.js` : box, invocation, fermeture en cours d'animation et bouton retour.
 - `demo.js` : le mode démo ne touche pas aux vraies données.
+- `uitest.js` : thèmes et dispositions (aperçus, application, pas de défilement horizontal), en sombre, clair et sur ordinateur.
+- `tweaks.js` : journée parfaite à 12/15, compteurs d'habitudes, 11 paliers d'identité, cartes Pokémon.
 - `mergechk.js` : fusion des données entre deux appareils.
 
 `IMAGES` = dossier local des images Naruto (les requêtes vers ces images sont redirigées vers ce dossier ; sans lui, les images manquent mais les tests tournent). Chaque script affiche `OK no errors` quand tout va bien.

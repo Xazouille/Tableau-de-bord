@@ -28,7 +28,7 @@ import { HABIT_STEPS, STAR_RULES, monthKey, prevMonth, reviewDone } from './game
 import { IDENT_XP } from './game/identity.js';
 
 const VIEWS = { today, stats, game, goals, media, vision, settings, growth, more: { render: settings.renderMore } };
-const SHEETS = { goal: goals.sheet, media: media.sheet, domain: settings.sheet, measure: today.sheet, card: game.sheet, odds: game.oddsSheet, shop: game.shopSheet, boss: game.bossSheet, look: game.lookSheet, timer: today.timerSheet, chal: game.chalSheet, plans: today.plansSheet };
+const SHEETS = { goal: goals.sheet, media: media.sheet, domain: settings.sheet, measure: today.sheet, card: game.sheet, odds: game.oddsSheet, shop: game.shopSheet, boss: game.bossSheet, look: game.lookSheet, timer: today.timerSheet, chal: game.chalSheet, plans: today.plansSheet, ui: settings.uiSheet };
 const MODULES = [today, stats, game, goals, media, vision, settings, growth];
 const actions = Object.assign({}, ...MODULES.map(m => m.actions || {}), {
   tab(el) {

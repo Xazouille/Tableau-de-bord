@@ -4,6 +4,32 @@ import { ui, ico, toast, openSheet, closeSheet } from '../ui.js';
 import { esc, todayKey, uid, fmtShort } from '../util.js';
 import { TIME_MEASURE } from '../measures.js';
 import { perfectNeed } from '../stats.js';
+import { UIS, LAYOUTS, uiOf, curLayout, preview, loadFonts } from '../looks.js';
+import { G } from '../game/rules.js';
+import { worn, LOOKS, unlockCtx, isUnlocked } from '../game/cosmetics.js';
+
+// Apparence : le thème porté (choisi dans Jeu → Personnaliser), la disposition et le mode clair / sombre
+const modeSegs = (act = 'theme') => { const th = S.settings.theme || 'auto'; return `<div class="segs">${[['auto', '🌗 Auto'], ['light', '☀️ Clair'], ['dark', '🌙 Sombre']].map(([id, l]) => `<button class="seg ${th === id ? 'on' : ''}" data-act="${act}" data-t="${id}">${l}</button>`).join('')}</div>`; };
+const curTheme = () => uiOf(worn(G()).theme.id);
+function uiCard() {
+  const u = curTheme(), lay = LAYOUTS.find(l => l.id === curLayout(u.id)), c = unlockCtx(G());
+  const n = LOOKS.filter(l => isUnlocked(l.need, c)).length;
+  return `<section class="card ui-card"><h2>🎨 Apparence</h2>
+    <div class="ui-now">${preview(u, lay.id)}<span><b>${u.name}</b><small>${u.desc}</small><small class="ui-lay">Disposition : ${lay.name}</small>
+      <small>${n}/${LOOKS.length} thèmes débloqués</small></span></div>
+    <div class="row"><button class="btn sm" data-act="lookThemes">🎨 Changer de thème</button><button class="btn sm" data-act="uiOpen">📐 Changer de disposition</button></div>
+    <div class="f"><span>Mode</span>${modeSegs()}</div></section>`;
+}
+export function uiSheet() {
+  const cur = curTheme(), lay = curLayout(cur.id);
+  loadFonts([cur]);
+  return `<div class="ui-sheet"><h2>📐 Disposition</h2>
+    <p class="muted small">Touche une disposition : l’appli change tout de suite. Elle est gardée pour le thème <b>${cur.name}</b> ; chaque thème a la sienne.</p>
+    ${modeSegs('uiMode')}
+    <div class="ui-grid">${LAYOUTS.map(l => `<button class="ui-opt ${l.id === lay ? 'on' : ''}" data-act="layoutSet" data-id="${l.id}" aria-pressed="${l.id === lay}">${preview(cur, l.id)}<b>${l.name}</b><small>${l.desc}</small></button>`).join('')}</div>
+    <button class="btn ghost full" data-act="lookThemes">🎨 Changer de thème (Personnaliser)</button>
+    <button class="btn primary full" data-act="closeSheet">C’est bon</button></div>`;
+}
 
 export function renderMore() {
   const item = (tab, emoji, title, sub, c) => `<button class="hub" style="--c:${c}" data-act="tab" data-tab="${tab}"><span class="hub-emoji">${emoji}</span><span><b>${title}</b><small>${sub}</small></span>${ico('chev')}</button>`;
@@ -60,7 +86,7 @@ function domainsCard() {
 }
 
 export function render() {
-  const th = S.settings.theme || 'auto', thr = Math.round((S.settings.threshold || 0.5) * 100);
+  const thr = Math.round((S.settings.threshold || 0.5) * 100);
   const nDom = S.domains.list.filter(d => !d.archived).length, pNeed = perfectNeed(nDom);
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -71,9 +97,9 @@ export function render() {
   return `<header class="page-head"><h1>Réglages</h1></header>
     <div class="two">
     <div>
+    ${uiCard()}
     <section class="card"><h2>👤 Profil</h2>
       <label class="f">Prénom<input data-input="name" maxlength="30" value="${esc(S.profile.name)}"></label>
-      <div class="f"><span>Thème</span><div class="segs">${[['auto', '🌗 Auto'], ['light', '☀️ Clair'], ['dark', '🌙 Sombre']].map(([id, l]) => `<button class="seg ${th === id ? 'on' : ''}" data-act="theme" data-t="${id}">${l}</button>`).join('')}</div></div>
       <label class="f">Une journée compte pour la série 🔥 à partir de <b>${thr} %</b> des cases
         <input type="range" min="10" max="100" step="10" value="${thr}" data-input="threshold"></label>
       <label class="f">Journée parfaite 🏆 à partir de <b>${pNeed} cases sur ${nDom}</b>
@@ -151,6 +177,10 @@ const dom = id => S.domains.list.find(d => d.id === id);
 const domSave = () => { touch(S.domains); save(); };
 export const actions = {
   theme(el) { S.settings.theme = el.dataset.t; touch(S.settings); save(); },
+  uiOpen() { openSheet({ kind: 'ui' }); },
+  lookThemes() { ui.lookTab = 'theme'; openSheet({ kind: 'look' }); },
+  uiMode(el) { S.settings.theme = el.dataset.t; touch(S.settings); save(); ui.sheet = { ...ui.sheet }; },
+  layoutSet(el) { S.settings.layouts = { ...(S.settings.layouts || {}), [curTheme().id]: el.dataset.id }; touch(S.settings); save(); ui.sheet = { ...ui.sheet }; },
   domNew() { openSheet({ kind: 'domain' }); },
   domEdit(el) { openSheet({ kind: 'domain', id: el.dataset.id }); },
   domMove(el) {
