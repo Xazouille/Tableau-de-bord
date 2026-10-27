@@ -69,6 +69,8 @@ export function habitState() {
 export const REVIEW_XP = 100;
 export const monthKey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 export const prevMonth = (d = today()) => new Date(d.getFullYear(), d.getMonth() - 1, 1);
+// « Pour toi ou pour le jeu ? » : vérifier que la motivation reste la tienne
+export const WHY = { moi: '💚 Pour moi', deux: '⚖️ Un peu des deux', jeu: '🎮 Surtout pour le jeu' };
 export const reviewDone = r => !!(r && ['good', 'bad', 'focus'].every(q => (r[q] || '').trim().length >= 3));
 // Focus choisi au dernier bilan (pour le mois en cours)
 export function currentFocus() {

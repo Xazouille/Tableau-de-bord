@@ -25,6 +25,7 @@ export function makeDemo() {
       if (dom.m.kind === 'skill') x[dom.id] = { s: 'sk' + Math.floor(rnd() * 3), v: Math.floor(rnd() * 3) };
       if (dom.m.kind === 'money') { money = Math.round(money + (rnd() - 0.3) * 60); x[dom.id] = money; }
     }
+    if (c.sommeil) x.sleepreg = rnd() < 0.65 ? 1 : 0;
     // Humeur : meilleure les jours bien remplis (pas notée tous les jours)
     const ratio = Object.keys(c).length / d.domains.list.length;
     const mood = rnd() < 0.8 ? Math.max(1, Math.min(5, Math.round(1.2 + 3.6 * ratio + (rnd() - 0.5) * 1.6))) : 0;
@@ -46,6 +47,13 @@ export function makeDemo() {
       { id: uid(), type: 'film', title: 'Your Name', status: 'todo', rating: 0, review: '', date: '', cover: '', created: 21, u: 1 }]);
   d.vision.blocks[0].text = 'Je veux devenir quelqu’un de discipliné, qui tient ses promesses envers lui-même.\nObtenir mon DCG et être fier du chemin parcouru.';
   d.vision.blocks[1].text = 'La régularité bat le talent. Chaque petite victoire compte.';
+  // Plans « si… alors… », heure de coucher, victoires notées, bilan du mois dernier
+  const plans = { ecole: ['après le dîner', '15 min de révision active'], sport: ['en rentrant à la maison', 'je pars courir 20 min'], medit: ['juste après le réveil', '5 min de respiration'], culture: ['au lit, avant de dormir', '10 pages'] };
+  for (const dom of d.domains.list) if (plans[dom.id]) dom.plan = { when: plans[dom.id][0], then: plans[dom.id][1] };
+  d.settings.bedtime = '23:00';
+  d.wins = [{ id: uid(), k: ago(2), emoji: '⭐', text: '10 min de conversation en anglais sans bloquer', u: 1 }, { id: uid(), k: ago(12), emoji: '⭐', text: 'Premier 5 km couru sans m’arrêter', u: 1 }];
+  const pm = new Date(t.getFullYear(), t.getMonth() - 1, 1), pmk = `${pm.getFullYear()}-${String(pm.getMonth() + 1).padStart(2, '0')}`;
+  d.reviews[pmk] = { good: 'Le sport 4 fois par semaine', bad: 'Le téléphone le soir', focus: 'Réviser le DCG tous les jours', why: 'deux', u: 1 };
   // Une carte de chaque famille (ouvertes dans une seule « box » pour laisser des box à ouvrir), toutes les évolutions visibles
   const lines = Object.values(LINES);
   d.game.pulls = lines.map((l, i) => Object.assign({ id: uid(), b: 'demo', l: l.id, r: l.rarity, t: i + 1 }, i % 37 === 0 ? { s: 1 } : {}));

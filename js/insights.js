@@ -46,6 +46,12 @@ export function insights() {
     const w = days.filter(good).map(k => dayCount(k) - 1), wo = days.filter(k => !good(k)).map(k => dayCount(k) - (isDone(k, 'sommeil') ? 1 : 0));
     if (w.length >= 5 && wo.length >= 5 && avg(w) - avg(wo) >= 0.7) out.push({ s: avg(w) - avg(wo), ico: '😴', txt: `Après une nuit de 7 h et plus, tu coches <b>${f1(avg(w) - avg(wo))} cases de plus</b> dans la journée.` });
   }
+  // Régularité : couché à son heure la veille
+  if (sl) {
+    const reg = days.filter(k => valOf(k, 'sleepreg') === 1), irr = days.filter(k => valOf(k, 'sleepreg') === 0);
+    const c = k => dayCount(k) - (isDone(k, 'sommeil') ? 1 : 0);
+    if (reg.length >= 5 && irr.length >= 5 && avg(reg.map(c)) - avg(irr.map(c)) >= 0.7) out.push({ s: avg(reg.map(c)) - avg(irr.map(c)), ico: '🌙', txt: `Les jours après un coucher à ton heure, tu coches <b>${f1(avg(reg.map(c)) - avg(irr.map(c)))} cases de plus</b>.` });
+  }
   // Jours de la semaine
   const byWd = Array.from({ length: 7 }, () => []);
   for (const k of days) byWd[parseKey(k).getDay()].push(dayRatio(k));

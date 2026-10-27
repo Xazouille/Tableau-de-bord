@@ -1,5 +1,5 @@
 // Écran « Stats » : scores, calendrier façon GitHub, séries par domaine, journal.
-import { S, activeDomains, isDone } from '../store.js';
+import { S, activeDomains, isDone, valOf } from '../store.js';
 import { dayCount, dayRatio, dayTotal, isPerfect, isJoker, globalStreak, globalBest, domainStreak, domainBest, domainRate, periodScore, weekScore, monthScore, totalChecks } from '../stats.js';
 import { ui, empty } from '../ui.js';
 import { G } from '../game/rules.js';
@@ -66,6 +66,12 @@ function weeksChart() {
   return `<section class="card"><div class="c-head"><h2>Semaine par semaine</h2><span class="muted small">score en %</span></div><div class="bars">${bars.join('')}</div></section>`;
 }
 
+// Sommeil : nuits où tu t'es couché à ton heure, sur les 14 dernières
+function regLine() {
+  let n = 0, any = false;
+  for (let i = 0; i < 14; i++) { const v = valOf(key(addDays(today(), -i)), 'sleepreg'); if (v === 1) n++; if (v != null) any = true; }
+  return any ? ` · 🌙 ${n}/14 nuits à l’heure` : '';
+}
 function domainsCard() {
   const g = G();
   const rows = activeDomains().map(d => {
@@ -73,7 +79,7 @@ function domainsCard() {
     return `<div class="d-row" style="--c:${d.color}">
       <span class="d-emoji">${d.emoji}</span>
       <div class="d-main"><div class="d-top"><b>${esc(d.name)}${m ? ` <span class="d-ms" style="--rk:${RANKS[m.rank][1]}">niv. ${m.level}</span>` : ''}</b><span class="d-nums"><span class="${s.n ? 'fire' : 'muted'}">🔥 ${s.n}</span><span class="muted">🏆 ${b}</span></span></div>
-        <div class="d-bar"><span style="width:${r}%"></span></div><span class="muted small">${r} % des 30 derniers jours</span></div>
+        <div class="d-bar"><span style="width:${r}%"></span></div><span class="muted small">${r} % des 30 derniers jours${d.id === 'sommeil' ? regLine() : ''}</span></div>
     </div>`;
   }).join('');
   return `<section class="card"><div class="c-head"><h2>Par domaine</h2><span class="muted small">🔥 série · 🏆 record</span></div>${rows}</section>`;

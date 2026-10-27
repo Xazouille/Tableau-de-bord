@@ -49,5 +49,12 @@ export function nudges() {
   if (ms) out.push({ key: 'mastery', p: ms.up ? 75 : 50, ico: ms.d.emoji, txt: `${ms.d.name} : coche-le aujourd’hui et tu passes niveau ${ms.m.level + 1}${ms.up ? ` (rang ${RANKS[rankOf(ms.m.level + 1)][0]})` : ''}` });
 
   for (const ch of g.challenges) if (!ch.done && !ch.unit && ch.goal - ch.value === 1) { out.push({ key: 'chal', p: 45, ico: ch.emoji, txt: `Défi « ${ch.text} » : plus qu’un !` }); break; }
+
+  // Heure de coucher dans moins d'une heure
+  const bt = /^(\d\d):(\d\d)$/.exec(S.settings.bedtime || '');
+  if (bt && doms.some(d => d.id === 'sommeil')) {
+    const now = new Date(), left = ((Number(bt[1]) * 60 + Number(bt[2])) - (now.getHours() * 60 + now.getMinutes()) + 1440) % 1440;
+    if (left <= 60) out.push({ key: 'bed', p: 80, ico: '🌙', txt: left <= 5 ? `C’est l’heure d’aller te coucher (${S.settings.bedtime})` : `Coucher à ${S.settings.bedtime} : dans ${left} min, prépare-toi` });
+  }
   return out.sort((a, b) => b.p - a.p);
 }

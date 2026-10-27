@@ -9,7 +9,8 @@ import { ui, rerender, pushModal, popModal, holdBanners } from '../ui.js';
 import { esc, plural, key, parseKey, addDays } from '../util.js';
 import { S, save, activeDomains, isDone } from '../store.js';
 import { periodScore, isPerfect } from '../stats.js';
-import { reviewDone, monthName, REVIEW_XP } from './growth.js';
+import { reviewDone, monthName, REVIEW_XP, WHY } from './growth.js';
+import { winsBetween } from './wins.js';
 
 let layer = null;
 export const overlayOpen = () => !!layer;
@@ -331,6 +332,9 @@ export function showRecap(r) {
   for (const x of r.bosses) lines.push(x.won ? `⚔️ ${esc(x.name)} vaincu` : `💨 ${esc(x.name)} s’est enfui`);
   if (r.mood) lines.push(`${MOODS[Math.round(r.mood)]} Humeur moyenne : <b>${r.mood.toFixed(1).replace('.', ',')}/5</b>`);
   if (r.record) lines.push('🏆 <b>Nouveau record</b> : ta meilleure semaine en XP !');
+  const wins = winsBetween(G(), key(r.ws), key(sun)).sort((a, b) => b.big - a.big);
+  if (wins.length) lines.unshift(`🏅 <b>${plural(wins.length, 'victoire', 'victoires')}</b> : ${wins.slice(0, 3).map(w => esc(w.txt)).join(' · ')}${wins.length > 3 ? '…' : ''}`);
+  if (!r.provisional && 'CD'.includes(gr.g)) lines.push('🌱 Une semaine difficile ne définit pas la suivante : lundi, page blanche.');
   show(`<div class="recap g-${gr.g}" style="--gc:${gr.color}">
       <div class="ov-rays"></div>
       <p class="ov-kicker">Bilan de la semaine · ${fmt(r.ws)} → ${fmt(sun)}</p>
@@ -393,6 +397,9 @@ export function showMonthRecap(mk) {
         ${q('good', '✅ Qu’est-ce qui a bien marché ?', 'Ce dont tu es fier ce mois-ci…')}
         ${q('bad', '🧱 Qu’est-ce qui t’a bloqué ?', 'Ce qui t’a freiné, et pourquoi…')}
         ${q('focus', '🎯 Ton focus pour le mois prochain ?', 'Une priorité claire (elle s’affichera chaque jour)')}
+        <div class="mr-q mr-why"><span>🤔 Est-ce que tu le fais encore pour toi, ou pour le jeu ?</span>
+          <div class="pills">${Object.entries(WHY).map(([id, l]) => `<label><input type="radio" name="mr-why" value="${id}" ${r.why === id ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>
+          <small>Pas de mauvaise réponse. Si c’est surtout pour le jeu, relis ta vision et garde une ou deux cases « juste pour toi », sans regarder l’XP.</small></div>
       </div>
       <p class="ov-tip">${live ? 'Mois en cours : tu pourras valider ce bilan (box classique + ' + REVIEW_XP + ' XP) dès le 1er du mois prochain.' : done ? '✓ Bilan rempli : box classique et +' + REVIEW_XP + ' XP gagnées.' : `Réponds aux 3 questions : <b>box classique + ${REVIEW_XP} XP</b>.`}</p>
       <div class="ov-actions"><button class="btn primary" data-ov="saveReview" data-m="${mk}">${done ? 'Enregistrer' : 'Valider mon bilan'}</button><button class="btn ghost" data-ov="close">Plus tard</button></div>
@@ -401,7 +408,8 @@ export function showMonthRecap(mk) {
 function saveReview(mk) {
   const val = id => (layer.querySelector('#mr-' + id) || {}).value || '';
   const was = reviewDone(S.reviews[mk]);
-  S.reviews[mk] = { good: val('good').trim(), bad: val('bad').trim(), focus: val('focus').trim(), u: Date.now() };
+  const why = (layer.querySelector('input[name="mr-why"]:checked') || {}).value || '';
+  S.reviews[mk] = { good: val('good').trim(), bad: val('bad').trim(), focus: val('focus').trim(), why, u: Date.now() };
   save();
   if (!reviewDone(S.reviews[mk])) { const tip = layer.querySelector('.ov-tip'); tip.innerHTML = '✍️ Écris au moins quelques mots à chaque question.'; buzz([30, 30, 30]); return; }
   if (was || mk >= key(new Date()).slice(0, 7)) { closeOverlay(); return; }

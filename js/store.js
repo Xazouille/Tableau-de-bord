@@ -56,9 +56,9 @@ export function defaults() {
     goals: [],
     media: [],
     vision: { blocks: DEFAULT_VISION.map(b => ({ ...b })), u: 0 },
-    skills: [], habits: [], reviews: {},
+    skills: [], habits: [], reviews: {}, wins: [],
     // since : début des boss, bilans et rangs de maîtrise récompensés ; dupFrom : avant cette heure, les doublons devenaient des fragments tout seuls
-    game: { pulls: [], trades: [], fusions: [], recycles: [], visits: {}, badges: {}, jokerDays: {}, comp: [], rewards: [], since: todayKey(), dupFrom: Date.now(), u: 0 },
+    game: { pulls: [], trades: [], fusions: [], recycles: [], visits: {}, badges: {}, jokerDays: {}, chal: {}, comp: [], rewards: [], since: todayKey(), dupFrom: Date.now(), u: 0 },
     dead: {},
   };
 }
@@ -69,7 +69,7 @@ function normalize(d) {
   const o = Object.assign(defaults(), d || {});
   for (const k of ['meta', 'profile', 'settings', 'domains', 'vision', 'game']) o[k] = Object.assign(def[k], o[k] && typeof o[k] === 'object' ? o[k] : {});
   for (const k of ['days', 'dead']) if (!o[k] || typeof o[k] !== 'object' || Array.isArray(o[k])) o[k] = {};
-  for (const k of ['goals', 'media', 'skills', 'habits']) if (!Array.isArray(o[k])) o[k] = [];
+  for (const k of ['goals', 'media', 'skills', 'habits', 'wins']) if (!Array.isArray(o[k])) o[k] = [];
   if (!o.reviews || typeof o.reviews !== 'object' || Array.isArray(o.reviews)) o.reviews = {};
   if (!Array.isArray(o.domains.list)) o.domains.list = defaults().domains.list;
   if (!Array.isArray(o.vision.blocks)) o.vision.blocks = defaults().vision.blocks;
@@ -93,7 +93,7 @@ function normalize(d) {
   for (const k of ['pulls', 'trades', 'fusions', 'recycles', 'comp', 'rewards']) if (!Array.isArray(g[k])) g[k] = [];
   if (typeof g.since !== 'string') g.since = todayKey();
   if (typeof g.dupFrom !== 'number') g.dupFrom = Date.now();
-  for (const k of ['visits', 'badges', 'jokerDays']) if (!g[k] || typeof g[k] !== 'object' || Array.isArray(g[k])) g[k] = {};
+  for (const k of ['visits', 'badges', 'jokerDays', 'chal']) if (!g[k] || typeof g[k] !== 'object' || Array.isArray(g[k])) g[k] = {};
   return o;
 }
 
@@ -118,9 +118,13 @@ function persist() {
   try { localStorage.setItem(KEY, JSON.stringify(S)); storageOK = true; }
   catch (e) { storageOK = false; }
 }
+// Numéro de version des données : change à chaque modification (sert aux calculs mis en cache)
+let REV = 0;
+export const rev = () => REV;
 // Enregistre une modification : sur l'appareil, puis en ligne si la synchro est active
 export function save() {
   if (leaving) return;
+  REV++;
   S.meta.modified = Date.now();
   persist();
   schedulePush();
@@ -194,7 +198,7 @@ export function merge(a, b) {
   m.game = mergeGame(a.game, b.game, m.dead);
   m.days = { ...a.days };
   for (const [k, d] of Object.entries(b.days)) m.days[k] = mergeDay(m.days[k], d);
-  for (const list of ['goals', 'media', 'skills', 'habits']) {
+  for (const list of ['goals', 'media', 'skills', 'habits', 'wins']) {
     const byId = new Map();
     for (const it of [...a[list], ...b[list]]) byId.set(it.id, newer(byId.get(it.id), it));
     m[list] = [...byId.values()].filter(it => !(m.dead[it.id] >= (it.u || 0)));
@@ -234,14 +238,16 @@ function mergeDay(a, b) {
 function mergeGame(a, b, dead) {
   const byId = (x, y) => { const m = new Map(); for (const it of [...x, ...y]) m.set(it.id, it); return [...m.values()].sort((p, q) => (p.t || 0) - (q.t || 0)); };
   const newerById = (x, y) => { const m = new Map(); for (const it of [...x, ...y]) { const o = m.get(it.id); if (!o || (it.u || 0) > (o.u || 0)) m.set(it.id, it); } return [...m.values()]; };
-  const badges = { ...b.badges };
+  const badges = { ...b.badges }, chal = { ...a.chal };
+  // Défis choisis : pour chaque semaine, le choix le plus récent
+  for (const [w, c] of Object.entries(b.chal)) if (!chal[w] || (c.u || 0) > (chal[w].u || 0)) chal[w] = c;
   for (const [id, d] of Object.entries(a.badges)) badges[id] = badges[id] && badges[id] < d ? badges[id] : d;
   return {
     ...a,
     pulls: byId(a.pulls, b.pulls), trades: byId(a.trades, b.trades), comp: byId(a.comp, b.comp),
     fusions: byId(a.fusions, b.fusions), recycles: byId(a.recycles, b.recycles),
     since: a.since < b.since ? a.since : b.since, dupFrom: Math.min(a.dupFrom, b.dupFrom),
-    visits: { ...a.visits, ...b.visits }, jokerDays: { ...a.jokerDays, ...b.jokerDays }, badges,
+    visits: { ...a.visits, ...b.visits }, jokerDays: { ...a.jokerDays, ...b.jokerDays }, badges, chal,
     rewards: newerById(a.rewards, b.rewards).filter(r => !(dead[r.id] >= (r.u || 0))),
     u: Math.max(a.u || 0, b.u || 0),
   };

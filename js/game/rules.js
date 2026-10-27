@@ -1,7 +1,7 @@
 // Règles du jeu : XP, niveaux, box, collection, compagnon, défis de la semaine, jokers et badges.
 // Presque tout est recalculé à partir de l'historique : décocher une case retire l'XP correspondante,
 // et deux appareils synchronisés arrivent toujours au même résultat.
-import { S, isDone, valOf, activeDomains } from '../store.js';
+import { S, isDone, valOf, activeDomains, rev } from '../store.js';
 import { key, parseKey, today, todayKey, addDays, weekStart, dayDiff, seeded } from '../util.js';
 import { caseXP, SLEEP_OK_FROM } from '../measures.js';
 import { isPerfect, isGoodDay, bestOf, globalBest, periodScore, dayCount, dayTotal } from '../stats.js';
@@ -12,8 +12,11 @@ import { runMastery } from './mastery.js';
 import { albumState } from './albums.js';
 import { recapWeeks, gradeOf, RECAP_HOUR } from './weekly.js';
 import { skillState, habitState, reviewDone, monthKey, REVIEW_XP } from './growth.js';
+import { identityState } from './identity.js';
 
 export const PERFECT_BONUS = 50, NOTE_XP = 5, VISIT_XP = 10, MEDIA_XP = 50, STEP_XP = 15;
+// Couché à son heure (± 30 min) : bonus sur la case Sommeil
+export const SLEEP_REG_XP = 10;
 export const FRAG = { 1: 3, 2: 6, 3: 12, 4: 25, 5: 50 };
 export const JOKER_MAX = 3;
 // Boss battu : de l'XP en plus de sa grande box et de sa carte
@@ -75,23 +78,50 @@ const CH_KINDS = {
   xp: lv => { const n = [500, 1000, 1800][lv]; return { emoji: '⚡', text: `Gagner ${n.toLocaleString('fr-FR')} XP`, goal: n, unit: ' XP', prog: w => w.xp }; },
   long: lv => { const n = [2, 3, 6][lv]; return { emoji: '⏱️', text: `${n} activités longues (1 h et +)`, goal: n, prog: longCount }; },
   pct: lv => { const n = [50, 65, 80][lv]; return { emoji: '📈', text: `Semaine à ${n} % ou plus`, goal: n, unit: ' %', prog: w => w.pct }; },
-  dom: (lv, rnd) => {
-    const doms = activeDomains(), d = doms[Math.floor(rnd() * doms.length)], n = [3, 5, 7][lv];
-    return d && { emoji: d.emoji, text: n === 7 ? `${d.name} 7 jours sur 7` : `${d.name} : ${n} jours`, goal: n, prog: w => w.days.filter(k => isDone(k, d.id)).length };
-  },
+  dom: (lv, rnd) => domChallenge(lv, activeDomains()[Math.floor(rnd() * activeDomains().length)]),
 };
-function weekChallenges(ws, dayXP) {
+function domChallenge(lv, d) {
+  const n = [3, 5, 7][lv];
+  return d && { emoji: d.emoji, text: n === 7 ? `${d.name} 7 jours sur 7` : `${d.name} : ${n} jours`, goal: n, domId: d.id, prog: w => w.days.filter(k => isDone(k, d.id)).length };
+}
+// 3 défis proposés par niveau : le premier est celui tiré au sort (le défi par défaut), les deux autres au choix
+export function weekOptions(ws) {
   const rnd = seeded('defis2' + key(ws));
   const kinds = Object.keys(CH_KINDS);
-  const list = CH_LEVELS.map((lvl, lv) => {
+  const base = CH_LEVELS.map((lvl, lv) => {
     let c = null;
     while (!c && kinds.length) c = CH_KINDS[kinds.splice(Math.floor(rnd() * kinds.length), 1)[0]](lv, rnd);
     return c && { ...c, ...lvl };
-  }).filter(Boolean);
+  });
+  // Autres choix : les types de défi pas encore pris, sinon un domaine pas encore pris
+  const r2 = seeded('defis-choix' + key(ws)), left = kinds.filter(x => x !== 'dom');
+  const usedDom = new Set(base.filter(c => c && c.domId).map(c => c.domId));
+  return CH_LEVELS.map((lvl, lv) => {
+    const opts = base[lv] ? [base[lv]] : [];
+    for (let tries = 0; opts.length < 3 && tries < 12; tries++) {
+      let c = null;
+      if (left.length && r2() < 0.7) c = CH_KINDS[left.splice(Math.floor(r2() * left.length), 1)[0]](lv, r2);
+      else {
+        const free = activeDomains().filter(d => !usedDom.has(d.id)), d = free[Math.floor(r2() * free.length)];
+        if (d) { usedDom.add(d.id); c = domChallenge(lv, d); }
+      }
+      if (c) opts.push({ ...c, ...lvl });
+    }
+    return opts;
+  });
+}
+// Choix possible jusqu'au mardi soir (après, les défis de la semaine sont fixés)
+export const chalOpen = (ws = weekStart(today())) => key(ws) === key(weekStart(today())) && todayKey() <= key(addDays(ws, 1));
+export const chalPick = ws => (S.game.chal[key(ws)] || {}).pick || [];
+function weekCtx(ws, dayXP) {
   const t = today(), days = [];
   for (let i = 0; i < 7; i++) { const d = addDays(ws, i); if (d <= t) days.push(key(d)); }
-  const w = { days, pct: periodScore(ws, addDays(ws, 6)).pct, xp: days.reduce((a, k) => a + (dayXP[k] || 0), 0) };
-  return list.map(c => { const v = c.prog(w); return { emoji: c.emoji, text: c.text, goal: c.goal, unit: c.unit || '', value: v, done: v >= c.goal, box: c.box, xp: c.xp, label: c.label }; });
+  return { days, pct: periodScore(ws, addDays(ws, 6)).pct, xp: days.reduce((a, k) => a + (dayXP[k] || 0), 0) };
+}
+const evalChal = (c, w) => { const v = c.prog(w); return { emoji: c.emoji, text: c.text, goal: c.goal, unit: c.unit || '', value: v, done: v >= c.goal, box: c.box, xp: c.xp, label: c.label }; };
+function weekChallenges(ws, dayXP, opts = weekOptions(ws)) {
+  const pick = chalPick(ws), w = weekCtx(ws, dayXP);
+  return opts.map((o, lv) => o[pick[lv]] || o[0]).filter(Boolean).map(c => evalChal(c, w));
 }
 
 /* ---------- Calcul complet (mis en cache tant que rien ne change) ---------- */
@@ -99,7 +129,7 @@ let memo = { s: null, mod: -1, day: '', v: null };
 export function G() {
   // Le dimanche à 18 h, le bilan de la semaine s'ouvre : on recalcule
   const now = new Date(), tk = todayKey() + (now.getDay() === 0 && now.getHours() >= RECAP_HOUR ? '+' : '');
-  if (memo.s !== S || memo.mod !== S.meta.modified || memo.day !== tk) memo = { s: S, mod: S.meta.modified, day: tk, v: compute() };
+  if (memo.s !== S || memo.mod !== rev() || memo.day !== tk) memo = { s: S, mod: rev(), day: tk, v: compute() };
   return memo.v;
 }
 export const invalidate = () => { memo.mod = -1; };
@@ -121,6 +151,7 @@ function compute() {
       if (!(day.c && day.c[d.id])) continue;
       const v = day.x ? day.x[d.id] : undefined;
       per[d.id] = caseXP(d, v, lastMoney);
+      if (d.id === 'sommeil' && day.x && day.x.sleepreg === 1) per[d.id] += SLEEP_REG_XP;
       x += per[d.id];
     }
     if (moneyDom && day.c && day.c[moneyDom.id] && day.x && typeof day.x[moneyDom.id] === 'number') { lastMoney = day.x[moneyDom.id]; money.push([k, lastMoney]); }
@@ -158,7 +189,8 @@ function compute() {
       for (const c of weekChallenges(ws, dayXP)) if (c.done) { xpChallenges += c.xp; earned[c.box]++; }
     }
   }
-  const challenges = weekChallenges(weekStart(t), dayXP);
+  const curOpts = weekOptions(weekStart(t)), challenges = weekChallenges(weekStart(t), dayXP, curOpts);
+  const curW = weekCtx(weekStart(t), dayXP), chalOptions = curOpts.map(o => o.map(c => evalChal(c, curW)));
 
   // Boss : grande box (deux pour un légendaire), sa carte et de l'XP à chaque victoire
   const since = S.game.since;
@@ -179,8 +211,11 @@ function compute() {
   for (const [mk, r] of Object.entries(S.reviews)) if (mk < curMonth && reviewDone(r) && dayKeys.some(k => k.startsWith(mk))) { xpReviews += REVIEW_XP; earned.c++; }
   for (const k of TIER_KEYS) earned[k] += skills.boxes[k] + habits.boxes[k];
   const xpGrowth = skills.xp + habits.xp;
+  // Identités « Je suis… » : de l'XP à chaque palier
+  const identity = identityState(activeDomains(), dayKeys);
+  const xpIdentity = Object.values(identity).reduce((a, x) => a + x.xp, 0);
 
-  const xp = xpCases + xpBonus + xpGoals + xpMedia + xpBadges + xpChallenges + xpBoss + xpGrowth + xpReviews;
+  const xp = xpCases + xpBonus + xpGoals + xpMedia + xpBadges + xpChallenges + xpBoss + xpGrowth + xpReviews + xpIdentity;
   const lvl = levelOf(xp);
 
   // Collection : chaque box ouverte donne une famille (au premier stade). Les doublons restent sur la carte,
@@ -289,8 +324,8 @@ function compute() {
 
   return {
     dayXP, caseXPs, money, xp, lvl, title: titleOf(lvl.level),
-    breakdown: { cases: xpCases, bonus: xpBonus, goals: xpGoals, media: xpMedia, badges: xpBadges, challenges: xpChallenges, boss: xpBoss, growth: xpGrowth, reviews: xpReviews },
-    challenges, owned, frags, since4, since5, boxes, boxesEarned, forms, companion, jokers, regressions, evolutions,
+    breakdown: { cases: xpCases, bonus: xpBonus, goals: xpGoals, media: xpMedia, badges: xpBadges, challenges: xpChallenges, boss: xpBoss, growth: xpGrowth, reviews: xpReviews, identity: xpIdentity },
+    challenges, chalOptions, identity, owned, frags, since4, since5, boxes, boxesEarned, forms, companion, jokers, regressions, evolutions,
     mediaDone, smallAt: sAt, boss, mastery, recaps, albums, dups, awaken, shinies, fusionCount, skills: skills.list, habits: habits.list,
     rarityOf: l => (LINES[l] ? LINES[l].rarity : 0),
   };
@@ -316,6 +351,11 @@ export function badgeDefs() {
   add('Domaines', 'ecran7', '📵', 'Détox', 'Moins de 30 min d’écran 7 jours d’affilée', 300, c => c.ecranLow7);
   add('Domaines', 'sommeil7', '😴', 'Gros dormeur', '8 h de sommeil ou plus 7 nuits d’affilée', 200, c => c.sleep7);
   add('Domaines', 'alim7', '🥗', 'Assiette parfaite', 'Les 4 objectifs d’alimentation 7 jours d’affilée', 250, c => c.alim7);
+  add('Domaines', 'reg7', '🌙', 'Horloge interne', 'Couché à ton heure 7 soirs d’affilée', 200, c => c.reg >= 7);
+  add('Domaines', 'reg30', '🕰️', 'Réglé comme une horloge', 'Couché à ton heure 30 soirs d’affilée', 600, c => c.reg >= 30, 'g');
+  add('Plans', 'plan1', '🧭', 'Premier plan', 'Écrire un plan « si… alors… » pour une case', 30, c => c.plans >= 1);
+  add('Plans', 'plan5', '🗺️', 'Bien organisé', 'Avoir un plan pour 5 cases', 100, c => c.plans >= 5);
+  add('Plans', 'planAll', '📋', 'Tout est prévu', 'Avoir un plan pour chaque case', 250, c => c.plans >= Math.max(5, c.nDoms), 'c');
   [[7, 50], [30, 200], [100, 600], [365, 2000]].forEach(([n, xp]) =>
     add('Connexion', 'visite' + n, '📅', `${n} jours de connexion`, `Ouvrir l’appli ${n} jours différents`, xp, c => c.visits >= n));
   [[7, 50], [30, 200], [100, 500]].forEach(([n, xp]) =>
@@ -376,6 +416,8 @@ function badgeCtx() {
     domBest: id => domBestCache[id] ?? (domBestCache[id] = bestOf(k => isDone(k, id))),
     ecranLow7: bestOf(k => isDone(k, 'ecran') && valOf(k, 'ecran') === 3) >= 7,
     sleep7: bestOf(k => isDone(k, 'sommeil') && valOf(k, 'sommeil') === 3) >= 7,
+    reg: bestOf(k => isDone(k, 'sommeil') && valOf(k, 'sleepreg') === 1),
+    plans: activeDomains().filter(d => d.plan && (d.plan.when || '').trim()).length, nDoms: activeDomains().length,
     alim7: !!alim && bestOf(k => isDone(k, 'alim') && Array.isArray(valOf(k, 'alim')) && valOf(k, 'alim').length >= alim.m.items.length) >= 7,
     visits: Object.keys(S.game.visits).length,
     notes: Object.values(S.days).filter(d => d.note && d.note.trim()).length,

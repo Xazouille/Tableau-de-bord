@@ -1337,3 +1337,95 @@ form[data-type=list] .if-list{display:block}
 .mr-q span{display:block;margin-bottom:4px;font-weight:800;font-size:14.5px}
 .mr-q textarea{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.2);color:#fff}
 .mr-q textarea::placeholder{color:rgba(255,255,255,.45)}
+.mr-why .pills{gap:6px}
+.mr-why .pills span{margin:0;padding:7px 11px;font-size:13px;color:#fff;border-color:rgba(255,255,255,.3)}
+.mr-why small{display:block;margin-top:6px;color:rgba(255,255,255,.65);font-size:12px;line-height:1.4}
+
+/* Série cassée : message bienveillant */
+.kind-card{display:flex;gap:12px;align-items:flex-start;margin:0 0 10px;padding:14px;border-radius:18px;background:color-mix(in oklab,var(--ok) 10%,var(--card));border:1px solid color-mix(in oklab,var(--ok) 35%,transparent)}
+.kc-ico{font-size:28px;line-height:1}
+.kind-card b{font:600 16px var(--head)}
+.kind-card p{margin:4px 0;font-size:14px;line-height:1.45}
+.kind-card small{display:block}
+.kind-card .btn{margin-top:10px}
+
+/* Défis : rappel du lundi et choix */
+.chal-prompt{display:flex;align-items:center;gap:12px;width:100%;text-align:left;margin:0 0 10px;padding:12px 14px;border-radius:18px;cursor:pointer;color:var(--text);
+  border:2px solid transparent;background:linear-gradient(var(--card),var(--card)) padding-box,var(--grad) border-box;box-shadow:var(--shadow)}
+.chal-prompt > span:first-child{font-size:28px}
+.chal-prompt > span:nth-child(2){flex:1}
+.chal-prompt b{display:block;font:600 16px var(--head)}
+.chal-prompt small{color:var(--muted);font-weight:700}
+.chs-lv{margin-top:14px}
+.chs-opts{display:grid;gap:8px;margin-top:6px}
+.chs-opt{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:4px 10px;width:100%;text-align:left;padding:10px 12px;border-radius:16px;cursor:pointer;
+  border:1.5px solid var(--line2);background:var(--card);color:var(--text);transition:all .2s}
+.chs-opt.on{border-color:var(--tc);background:color-mix(in oklab,var(--tc) 14%,var(--card));box-shadow:0 4px 14px color-mix(in oklab,var(--tc) 30%,transparent)}
+.chs-opt:disabled{cursor:default;opacity:.75}
+.chs-emoji{font-size:22px;text-align:center}
+.chs-opt b{font-size:14.5px}
+.chal-sheet > .btn{margin-top:16px}
+
+/* Plans « si… alors… » */
+.tiles-head{gap:8px;flex-wrap:wrap}
+.plans-card .plan-row{display:flex;gap:10px;align-items:baseline;margin:6px 0;font-weight:700;font-size:14.5px}
+.plan-line{margin:0 0 10px;padding:8px 12px;border-radius:14px;background:color-mix(in oklab,var(--accent) 10%,var(--card2));font-weight:700;font-size:14px}
+.plan-edit{padding:10px 0;border-top:1px solid var(--line)}
+.plan-edit:first-of-type{border-top:0}
+.plan-edit > b{display:block;margin-bottom:2px}
+.plan-edit .f{margin:4px 0 0}
+.plans-sheet .grid2{grid-template-columns:1fr 1fr;gap:8px}
+.plans-sheet .f{font-size:12.5px}
+.plans-sheet input{font-size:14px;padding:9px 10px}
+.sheet .sticky-actions{bottom:0}
+
+/* Sommeil régulier */
+.sleep-reg{margin:0 0 12px;padding:10px 12px;border-radius:16px;background:color-mix(in oklab,#6c7bff 10%,var(--card2))}
+.sleep-reg .eyebrow{margin:0}
+.sleep-reg .chips{flex-wrap:wrap;margin:8px 0}
+.sleep-reg .chip small{opacity:.8}
+.bt-in{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0;font-size:13.5px}
+.bt-in input{width:auto}
+
+/* Note du jour → victoire */
+.note-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.chip.sm{padding:4px 10px;font-size:12.5px}
+
+/* Progrès : onglets (emoji au-dessus du nom) */
+.growth-segs{overflow-x:auto;scrollbar-width:none}
+.growth-segs .seg{min-width:max-content;padding:7px 6px;font-size:18px;gap:1px}
+.growth-segs .seg small{font-size:11.5px;font-weight:800;opacity:1}
+
+/* Identités */
+.id-now{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.id-chip{padding:5px 11px;border-radius:999px;font-weight:800;font-size:13px;background:color-mix(in oklab,var(--c) 16%,var(--card));border:1px solid color-mix(in oklab,var(--c) 40%,transparent);color:var(--text)}
+.id-list{display:grid;gap:10px;margin:12px 0}
+.idc{display:flex;gap:12px;width:100%;text-align:left;padding:14px;border:1px solid var(--line);border-radius:20px;background:var(--card);box-shadow:var(--shadow);color:var(--text);cursor:pointer}
+.idc-emoji{flex:none;display:grid;place-items:center;width:50px;height:50px;border-radius:16px;font-size:27px;background:color-mix(in oklab,var(--c) 16%,var(--card2))}
+.idc-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.idc-name{font:600 18px var(--head)}
+.idc-pips{display:flex;gap:4px;margin:3px 0 1px}
+.idc-pips i{flex:1;height:5px;border-radius:3px;background:var(--cell0)}
+.idc-pips i.on{background:var(--c)}
+.idc .d-bar{margin:4px 0 2px}
+.idc-ladder{display:grid;gap:3px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line);font-size:13.5px;font-weight:700;color:var(--muted)}
+.idc-ladder .ok{color:var(--text)}
+.idc-ladder small{color:var(--muted);font-weight:700}
+.v-already{display:block;width:100%;text-align:left;margin:0 0 14px;padding:14px;border-radius:var(--r);border:1px solid var(--line);background:var(--card);box-shadow:var(--shadow);color:var(--text);cursor:pointer}
+.v-already .id-now{margin:8px 0 6px}
+
+/* Mur des victoires */
+.wn-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:10px 0}
+.wn-stats div{display:flex;flex-direction:column;align-items:center;padding:10px 4px;border-radius:16px;background:var(--card2)}
+.wn-stats b{font:700 24px var(--head)}
+.wn-stats small{color:var(--muted);font-weight:700;font-size:12px}
+.wn-filters{margin:4px 0 6px}
+.wn-grp{margin:14px 4px 6px;text-transform:uppercase;letter-spacing:.05em;font-size:12px}
+.wn-list{display:grid;gap:6px}
+.wn{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:14px;background:var(--card);border:1px solid var(--line)}
+.wn.big{border-color:color-mix(in oklab,var(--gold) 45%,transparent);background:color-mix(in oklab,var(--gold) 8%,var(--card))}
+.wn-ico{flex:none;width:26px;text-align:center;font-size:20px}
+.wn-txt{flex:1;min-width:0;font-weight:700;font-size:14px}
+.wn small{flex:none;font-size:12px}
+.wn .icon-btn{flex:none;margin:-6px -6px -6px 0}
+.sheet .sticky-actions .btn{flex:1}

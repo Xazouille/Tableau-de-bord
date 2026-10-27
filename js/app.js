@@ -25,9 +25,10 @@ import * as growth from './views/growth.js';
 import { timerState, tick } from './timer.js';
 import { showMonthRecap } from './game/opening.js';
 import { HABIT_STEPS, STAR_RULES, monthKey, prevMonth, reviewDone } from './game/growth.js';
+import { IDENT_XP } from './game/identity.js';
 
 const VIEWS = { today, stats, game, goals, media, vision, settings, growth, more: { render: settings.renderMore } };
-const SHEETS = { goal: goals.sheet, media: media.sheet, domain: settings.sheet, measure: today.sheet, card: game.sheet, odds: game.oddsSheet, shop: game.shopSheet, boss: game.bossSheet, look: game.lookSheet, timer: today.timerSheet };
+const SHEETS = { goal: goals.sheet, media: media.sheet, domain: settings.sheet, measure: today.sheet, card: game.sheet, odds: game.oddsSheet, shop: game.shopSheet, boss: game.bossSheet, look: game.lookSheet, timer: today.timerSheet, chal: game.chalSheet, plans: today.plansSheet };
 const MODULES = [today, stats, game, goals, media, vision, settings, growth];
 const actions = Object.assign({}, ...MODULES.map(m => m.actions || {}), {
   tab(el) {
@@ -152,6 +153,7 @@ function checkProgress() {
     announceAlbums(g);
     announceBoss(g);
     announceGrowth(g);
+    announceIdentity(g);
 
     // Un seul grand écran à la fois : boss vaincu, puis bilan de la semaine
     if (overlayOpen() || ui.sheet) return;
@@ -247,6 +249,21 @@ function announceGrowth(g) {
     }
   }
   if (JSON.stringify(now) !== JSON.stringify(seen)) setPref('growth', JSON.stringify(now));
+}
+
+// Identités : un nouveau palier « Je suis… » dans un domaine
+function announceIdentity(g) {
+  const now = {};
+  for (const [id, x] of Object.entries(g.identity)) now[id] = x.stage;
+  let seen = null;
+  try { seen = JSON.parse(pref('ident')); } catch (e) {}
+  if (seen) for (const d of activeDomains()) {
+    const x = g.identity[d.id];
+    if (!x || seen[d.id] === undefined || x.stage <= seen[d.id]) continue;
+    banner({ icon: d.emoji, title: `Tu es maintenant : ${x.name}`, sub: `${x.n} jours de ${d.name} · +${IDENT_XP[x.stage - 1]} XP · nouveau titre`, color: d.color, cls: 'gold-ban', ms: 4200 });
+    if (x.stage >= 4) setTimeout(() => confetti(120), 300);
+  }
+  if (JSON.stringify(now) !== JSON.stringify(seen)) setPref('ident', JSON.stringify(now));
 }
 
 // Nouveau boss en vue
