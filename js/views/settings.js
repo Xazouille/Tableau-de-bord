@@ -18,7 +18,8 @@ function uiCard() {
     <div class="ui-now">${preview(u, lay.id)}<span><b>${u.name}</b><small>${u.desc}</small><small class="ui-lay">Disposition : ${lay.name}</small>
       <small>${n}/${LOOKS.length} thèmes débloqués</small></span></div>
     <div class="row"><button class="btn sm" data-act="lookThemes">🎨 Changer de thème</button><button class="btn sm" data-act="uiOpen">📐 Changer de disposition</button></div>
-    <div class="f"><span>Mode</span>${modeSegs()}</div></section>`;
+    <div class="f"><span>Mode</span>${modeSegs()}</div>
+    <div class="ui-icon"><img src="icons/t/${u.id}-192.png" alt="" width="48" height="48"><p class="muted small"><b>Icône de l’appli</b> : l’onglet prend tout de suite celle du thème. Sur l’écran d’accueil, l’icône est celle du thème porté au moment de l’installation ; pour la changer, supprime l’appli puis réinstalle-la. ⚠️ Sur iPhone, supprimer l’appli efface ses données : vérifie d’abord que la synchro est active ou exporte une sauvegarde.</p></div></section>`;
 }
 export function uiSheet() {
   const cur = curTheme(), lay = curLayout(cur.id);

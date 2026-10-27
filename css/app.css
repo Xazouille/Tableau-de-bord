@@ -1531,3 +1531,6 @@ form[data-type=list] .if-list{display:block}
 .th-grid .lk-theme.locked{opacity:1}
 .th-grid .lk-theme.locked .pv{filter:grayscale(.85);opacity:.45}
 .ui-card .row{margin-top:12px}
+.ui-icon{display:flex;gap:12px;align-items:flex-start;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.ui-icon img{flex:none;width:48px;height:48px;border-radius:12px}
+.ui-icon p{margin:0}
