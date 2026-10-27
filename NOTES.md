@@ -29,7 +29,7 @@ Une motivation uniquement « pour le jeu » finit par s'user (effet nouveauté, 
 
 ### Pile
 - **HTML / CSS / JavaScript vanilla en modules ES**, aucune étape de build, aucune dépendance à installer. Seule bibliothèque : `js/vendor/morphdom.js` (mise à jour du DOM sans tout redessiner).
-- **PWA** : `manifest.webmanifest` + `sw.js` (service worker, réseau d'abord puis cache). ⚠️ À chaque publication qui change des fichiers JS/CSS, **incrémenter `CACHE`** dans `sw.js` (actuellement `levelup-v9`) et **ajouter tout nouveau fichier JS à `ASSETS`**.
+- **PWA** : `manifest.webmanifest` + `sw.js` (service worker, réseau d'abord puis cache). ⚠️ À chaque publication qui change des fichiers JS/CSS, **incrémenter `CACHE`** dans `sw.js` (actuellement `levelup-v10`) et **ajouter tout nouveau fichier JS à `ASSETS`**.
 - **Hébergement** : GitHub Pages, branche `main`, racine du dépôt (`.nojekyll` présent).
 - Lancer en local : `python3 -m http.server 8765` puis http://localhost:8765.
 
