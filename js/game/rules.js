@@ -309,6 +309,9 @@ function compute() {
     const thr = compThreshold(line), stage = st.path.length - 1, form = FORMS[st.path[stage]];
     companion = { line, form, stage, path: st.path, maxed: !form.next.length, into: st.xp - thr * stage, need: thr, badStreak: bad };
   }
+  // Chaque ancien compagnon garde son stade et son XP pour la prochaine fois qu'on le choisit
+  const compStates = {};
+  for (const [line, st] of Object.entries(lineState)) compStates[line] = { stage: st.path.length - 1, form: FORMS[st.path[st.path.length - 1]], xp: st.xp };
 
   // Jokers : 1 gagné par semaine entière réussie (3 au maximum), 1 au départ
   const events = [];
@@ -327,7 +330,7 @@ function compute() {
   return {
     dayXP, caseXPs, money, xp, lvl, title: titleOf(lvl.level),
     breakdown: { cases: xpCases, bonus: xpBonus, goals: xpGoals, media: xpMedia, badges: xpBadges, challenges: xpChallenges, boss: xpBoss, growth: xpGrowth, reviews: xpReviews, identity: xpIdentity },
-    challenges, chalOptions, identity, owned, frags, since4, since5, boxes, boxesEarned, forms, companion, jokers, regressions, evolutions,
+    challenges, chalOptions, identity, compStates, owned, frags, since4, since5, boxes, boxesEarned, forms, companion, jokers, regressions, evolutions,
     mediaDone, smallAt: sAt, boss, mastery, recaps, albums, dups, awaken, shinies, fusionCount, skills: skills.list, habits: habits.list,
     rarityOf: l => (LINES[l] ? LINES[l].rarity : 0),
   };
