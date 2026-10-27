@@ -29,7 +29,7 @@ Une motivation uniquement « pour le jeu » finit par s'user (effet nouveauté, 
 
 ### Pile
 - **HTML / CSS / JavaScript vanilla en modules ES**, aucune étape de build, aucune dépendance à installer. Seule bibliothèque : `js/vendor/morphdom.js` (mise à jour du DOM sans tout redessiner).
-- **PWA** : `manifest.webmanifest` + `sw.js` (service worker, réseau d'abord puis cache). ⚠️ À chaque publication qui change des fichiers JS/CSS, **incrémenter `CACHE`** dans `sw.js` (actuellement `levelup-v8`) et **ajouter tout nouveau fichier JS à `ASSETS`**.
+- **PWA** : `manifest.webmanifest` + `sw.js` (service worker, réseau d'abord puis cache). ⚠️ À chaque publication qui change des fichiers JS/CSS, **incrémenter `CACHE`** dans `sw.js` (actuellement `levelup-v9`) et **ajouter tout nouveau fichier JS à `ASSETS`**.
 - **Hébergement** : GitHub Pages, branche `main`, racine du dépôt (`.nojekyll` présent).
 - Lancer en local : `python3 -m http.server 8765` puis http://localhost:8765.
 
@@ -72,14 +72,16 @@ Une motivation uniquement « pour le jeu » finit par s'user (effet nouveauté, 
 ## 3. Les règles du jeu (résumé)
 
 - **Cases du jour** (15 par défaut) : École, Échecs, Sport, Argent, Culture & Lecture, Alimentation, Méditation, Sommeil, Écran < 2h, Pas de scroll, Pas, Journal, Compétence, Rangement, Hygiène. Chaque case a une XP de base, multipliée selon le détail (temps passé, liste cochée, montant…).
+- **Journée parfaite** : 80 % des cases, soit **12 sur 15** (réglable dans Réglages, enregistré en proportion). Elle donne la box classique, +50 XP et le coup critique sur le boss.
 - **Série 🔥** : un jour compte si ≥ 50 % des cases (réglable). **Jokers** : 1 au départ, +1 par semaine entièrement réussie (3 max), sauvent la veille.
-- **Box** : petite (1 carte, à 5 cases), classique (3 cartes, journée parfaite), grande (5 cartes, chaque niveau). Garanties 4★ toutes les 15 cartes, 5★ toutes les 80. Doublons → fusion (éveillée / ultime) ou fragments → boutique.
+- **Box** : petite (1 carte, à 5 cases), classique (3 cartes, journée parfaite), grande (5 cartes, chaque niveau).
+- **Cartes Pokémon** : pour chaque Pokémon, une **full art récente** (2020 et après : illustration rare, illustration spéciale, ultra rare…) quand elle existe, sinon sa carte la plus récente ; jamais les rééditions de cartes anciennes. Choix fait par `tools/pick_pokemon_cards.py` (souhait d'Aaron : récentes et full art plutôt qu'anciennes et chères). Garanties 4★ toutes les 15 cartes, 5★ toutes les 80. Doublons → fusion (éveillée / ultime) ou fragments → boutique.
 - **Défis de la semaine** : 3 niveaux (petite / classique / grande box). Depuis octobre 2026, **3 propositions par niveau, à choisir jusqu'au mardi soir** (sinon le défi tiré au sort).
 - **Boss** : un à la fois, 7 jours max, dégâts = XP (point faible ×2, journée parfaite ×1,5), le suivant arrive le lendemain d'une victoire ; 1 sur 4 légendaire.
 - **Maîtrise** : 100 niveaux par domaine, rang tous les 10 niveaux (Novice → Mythe), ~3 ans pour le niveau 100.
-- **Identités « Je suis… »** : 7 paliers par domaine à 3, 10, 25, 50, 100, 200, 365 jours pratiqués (ex. lecture : Curieux → Lecteur → Lecteur assidu → Grand lecteur → Esprit cultivé → Érudit → Puits de culture). XP 15 → 500, deviennent des titres portables, jamais perdues.
+- **Identités « Je suis… »** : 11 paliers par domaine à 3, 10, 25, 50, 100, 200, 365, 500, 730, 1 000 et 1 500 jours pratiqués (~4 ans, pour ne pas tout atteindre en un an). Ex. lecture : Curieux → Lecteur → Lecteur assidu → Grand lecteur → Esprit cultivé → Érudit → Puits de culture → Bibliothèque vivante → Encyclopédie ambulante → Sage érudit → Légende de la culture. XP 15 → 1 500, deviennent des titres portables, jamais perdues.
 - **Compétences** notées par Aaron de 1 à 5★ ; l'XP d'une étoile n'arrive qu'avec assez de séances (3 / 10 / 25 / 50).
-- **Habitudes à arrêter** : compteur de jours, paliers 1 → 365 jours, record gardé après rechute.
+- **Habitudes à arrêter** : compteur de jours (visible aussi sur l'accueil, sous l'anneau), paliers 1 → 365 jours, record gardé après rechute.
 - **Bilan du dimanche** (18 h, note S → D), **bilan du mois** (3 questions + « pour toi ou pour le jeu ? », box classique + 100 XP), **records** en direct.
 - **Mur des victoires** : premières fois, nouveaux paliers, séries, journées parfaites, habitudes, étoiles, identités, rangs, objectifs, œuvres terminées, victoires notées (bouton « 🏅 C'est une victoire » sous la phrase du jour).
 - **Plans « si… alors… »** par case, affichés sur la case, dans sa fiche et le matin.
@@ -125,6 +127,8 @@ Recherche faite en octobre 2026 pour savoir si cette motivation « par le jeu »
 2. Publication sans Jekyll.
 3. PR #3 : 3 types de box + invocation animée, boss, maîtrise, fusion des doublons, brillantes, albums, bilan du dimanche, records, « presque ! », humeur et découvertes, recherche dans la collection, titres/cadres/thèmes, compagnon interactif.
 4. PR #4 : nouvelles cases (Pas, Journal, Compétence, Rangement, Hygiène), page Progrès (compétences, habitudes, bilans du mois), minuteur ; puis identités, mur des victoires, plans si… alors…, défis au choix, sommeil régulier, bienveillance, rappel du pourquoi, « pour toi ou pour le jeu ? ».
+
+5. Journée parfaite à 12/15, compteurs d'habitudes sur l'accueil, identités sur 11 paliers (~4 ans), cartes Pokémon full art récentes.
 
 ---
 

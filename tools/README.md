@@ -23,3 +23,10 @@ python3 gen_anime.py ../js/game/anime-data.js [dossier des données]
 
 Les identifiants des familles viennent du nom de leur première forme : ne pas renommer une première forme
 déjà obtenue, sinon la carte disparaît de la collection.
+
+# Cartes Pokémon
+
+`pick_pokemon_cards.py` choisit la carte de chaque Pokémon (1 à 493) pour `PK_TCG` dans `js/game/pokemon-data.js` :
+une full art récente (2020 et après) si elle existe, sinon la carte la plus récente, sans les rééditions de cartes anciennes.
+Il lit un dossier `tcg/` : `sets.json` + un fichier JSON par extension (données de https://github.com/PokemonTCG/pokemon-tcg-data,
+complétées par les extensions les plus récentes au même format), et écrit le tableau JSON sur la sortie standard.

@@ -1,6 +1,6 @@
 // Rappels « presque ! » : ce qui est à portée de main aujourd'hui, du plus motivant au moins urgent.
 import { S, activeDomains, isDone } from './store.js';
-import { dayCount, globalStreak, periodScore } from './stats.js';
+import { dayCount, globalStreak, periodScore, perfectNeed } from './stats.js';
 import { G } from './game/rules.js';
 import { GRADES } from './game/weekly.js';
 import { RANKS, rankOf } from './game/mastery.js';
@@ -11,7 +11,8 @@ export function nudges() {
   if (!n) return out;
   const hour = new Date().getHours(), sAt = g.smallAt;
   if (c < sAt && sAt - c <= 2) out.push({ key: 'small', p: 90, ico: '🎁', left: sAt - c, txt: `Plus que ${plural(sAt - c, 'case', 'cases')} pour ta petite box` });
-  if (c >= sAt && c < n && n - c <= 2) out.push({ key: 'perfect', p: 86, ico: '🏆', left: n - c, txt: `Plus que ${plural(n - c, 'case', 'cases')} pour une journée parfaite (box classique)` });
+  const pn = perfectNeed(n);
+  if (c >= sAt && c < pn && pn - c <= 2) out.push({ key: 'perfect', p: 86, ico: '🏆', left: pn - c, txt: `Plus que ${plural(pn - c, 'case', 'cases')} pour une journée parfaite (box classique)` });
 
   const b = g.boss.current;
   if (b) {

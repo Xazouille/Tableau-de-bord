@@ -1429,3 +1429,13 @@ form[data-type=list] .if-list{display:block}
 .wn small{flex:none;font-size:12px}
 .wn .icon-btn{flex:none;margin:-6px -6px -6px 0}
 .sheet .sticky-actions .btn{flex:1}
+
+/* Accueil : compteurs des habitudes arrêtées */
+.hb-strip{display:flex;gap:8px;overflow-x:auto;margin:0 0 12px;padding-bottom:2px;scrollbar-width:none}
+.hb-chip{flex:none;display:flex;align-items:center;gap:8px;padding:8px 14px 8px 10px;border-radius:16px;cursor:pointer;color:var(--text);text-align:left;
+  border:1px solid color-mix(in oklab,#22c55e 35%,transparent);background:color-mix(in oklab,#22c55e 10%,var(--card))}
+.hb-chip.fell{border-color:color-mix(in oklab,var(--danger) 35%,transparent);background:color-mix(in oklab,var(--danger) 8%,var(--card))}
+.hbc-emoji{font-size:22px}
+.hb-chip b{font:700 20px var(--head)}
+.hb-chip small{color:var(--muted);font-weight:800;font-size:12px}
+.hb-chip .hbc-name{display:block;color:var(--text);font-size:13px;line-height:1.1}

@@ -3,7 +3,7 @@ export const TIERS = {
   p: { key: 'p', name: 'Petite box', many: 'petites box', cards: 1, odds: [62, 28, 9, 1, 0], min: 1, pity: false, cost: 15, color: '#38bdf8',
     how: ['5 cases cochées dans la journée', 'Défi facile de la semaine'] },
   c: { key: 'c', name: 'Box classique', many: 'box classiques', cards: 3, odds: [50, 28, 15, 6, 1], min: 2, pity: true, cost: 50, color: '#a855f7',
-    how: ['Journée parfaite (tout coché)', 'Défi moyen de la semaine', 'Niveaux 5, 15, 25… : en bonus'] },
+    how: ['Journée parfaite (12 cases sur 15)', 'Défi moyen de la semaine', 'Niveaux 5, 15, 25… : en bonus'] },
   g: { key: 'g', name: 'Grande box', many: 'grandes box', cards: 5, odds: [30, 32, 24, 10, 4], min: 3, pity: true, cost: 120, color: '#f59e0b',
     how: ['Chaque niveau gagné', 'Défi difficile de la semaine', 'Niveaux 10, 20, 30… : une deuxième', 'Certains badges'] },
 };

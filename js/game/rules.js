@@ -343,7 +343,7 @@ export function badgeDefs() {
   [[3, 50], [7, 100, 'c'], [14, 200, 'c'], [30, 400, 'g'], [60, 600, 'g'], [100, 1000, 'g'], [200, 1500, 'g'], [365, 3000, 'g']].forEach(([n, xp, box]) =>
     add('Séries', 'serie' + n, '🔥', `Série de ${n} jours`, `Tenir ta série ${n} jours d’affilée`, xp, c => c.best >= n, box));
   [[1, 50], [5, 100, 'c'], [10, 200, 'c'], [25, 400, 'g'], [50, 700, 'g'], [100, 1500, 'g']].forEach(([n, xp, box]) =>
-    add('Journées parfaites', 'parfait' + n, '🏆', n === 1 ? 'Première journée parfaite' : `${n} journées parfaites`, `Tout cocher en une journée${n > 1 ? `, ${n} fois` : ''}`, xp, c => c.perfect >= n, box));
+    add('Journées parfaites', 'parfait' + n, '🏆', n === 1 ? 'Première journée parfaite' : `${n} journées parfaites`, `Une journée parfaite (80 % des cases)${n > 1 ? `, ${n} fois` : ''}`, xp, c => c.perfect >= n, box));
   for (const d of doms) {
     add('Domaines', `dom7-${d.id}`, d.emoji, `${d.name} · 7 jours`, `${d.name} 7 jours d’affilée`, 80, c => c.domBest(d.id) >= 7);
     add('Domaines', `dom30-${d.id}`, d.emoji, `${d.name} · 30 jours`, `${d.name} 30 jours d’affilée`, 300, c => c.domBest(d.id) >= 30);
