@@ -15,6 +15,7 @@ node tools/tests/smoke.js /tmp/shots IMAGES [desktop]
 - `uitest.js` : thèmes et dispositions (aperçus, application, pas de défilement horizontal), en sombre, clair et sur ordinateur.
 - `tweaks.js` : journée parfaite à 12/15, compteurs d'habitudes, 11 paliers d'identité, cartes Pokémon.
 - `icontest.js` : l'icône, l'icône d'installation et le fichier d'appli changent avec le thème.
+- `screentest.js` : objectif d'écran adaptatif (migration, baisse après les semaines à 5/7, paliers, fiche).
 - `mergechk.js` : fusion des données entre deux appareils.
 
 `IMAGES` = dossier local des images Naruto (les requêtes vers ces images sont redirigées vers ce dossier ; sans lui, les images manquent mais les tests tournent). Chaque script affiche `OK no errors` quand tout va bien.

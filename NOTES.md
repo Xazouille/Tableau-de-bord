@@ -29,7 +29,7 @@ Une motivation uniquement « pour le jeu » finit par s'user (effet nouveauté, 
 
 ### Pile
 - **HTML / CSS / JavaScript vanilla en modules ES**, aucune étape de build, aucune dépendance à installer. Seule bibliothèque : `js/vendor/morphdom.js` (mise à jour du DOM sans tout redessiner).
-- **PWA** : `manifest.webmanifest` + `sw.js` (service worker, réseau d'abord puis cache). ⚠️ À chaque publication qui change des fichiers JS/CSS, **incrémenter `CACHE`** dans `sw.js` (actuellement `levelup-v14`) et **ajouter tout nouveau fichier JS à `ASSETS`**.
+- **PWA** : `manifest.webmanifest` + `sw.js` (service worker, réseau d'abord puis cache). ⚠️ À chaque publication qui change des fichiers JS/CSS, **incrémenter `CACHE`** dans `sw.js` (actuellement `levelup-v15`) et **ajouter tout nouveau fichier JS à `ASSETS`**.
 - **Hébergement** : GitHub Pages, branche `main`, racine du dépôt (`.nojekyll` présent).
 - Lancer en local : `python3 -m http.server 8765` puis http://localhost:8765.
 
@@ -77,6 +77,7 @@ Une motivation uniquement « pour le jeu » finit par s'user (effet nouveauté, 
 - **Box** : petite (1 carte, à 5 cases), classique (3 cartes, journée parfaite), grande (5 cartes, chaque niveau).
 - **Cartes Pokémon** : pour chaque Pokémon, une **full art récente** (2020 et après : illustration rare, illustration spéciale, ultra rare…) quand elle existe, sinon sa carte la plus récente ; jamais les rééditions de cartes anciennes. Choix fait par `tools/pick_pokemon_cards.py` (souhait d'Aaron : récentes et full art plutôt qu'anciennes et chères). Garanties 4★ toutes les 15 cartes, 5★ toutes les 80. Doublons → fusion (éveillée / ultime) ou fragments → boutique.
 - **Défis de la semaine** : 3 niveaux (petite / classique / grande box). Depuis octobre 2026, **3 propositions par niveau, à choisir jusqu'au mardi soir** (sinon le défi tiré au sort).
+- **Écran maîtrisé** (case `ecran`) : objectif adapté au temps d'écran réel d'Aaron (3 h à 5 h par jour en octobre 2026). Départ à moins de 4 h ; chaque semaine où la case est cochée au moins 5 jours sur 7, l'objectif baisse de 15 min, jusqu'à 2 h. Paliers relatifs à l'objectif X : X, 3/4 X, X/2, X/4 (XP ×1, ×2, ×2,5, ×3 inchangés). Logique dans `js/game/screen.js` (`adapt.from` sur la case). Messages compte dans le temps d'écran.
 - **Compagnon** : il grandit avec l'XP des jours où il est actif ; un ancien compagnon garde son stade et son XP et repart de là quand on le reprend (affiché sur sa carte). XP par stade d'évolution selon la rareté : 1★ 500, 2★ 750, 3★ 1 050, 4★ 1 400, 5★ 1 750 (`EVO_XP` dans `rules.js`).
 - **Boss** : un à la fois, 7 jours max, dégâts = XP (point faible ×2, journée parfaite ×1,5), le suivant arrive le lendemain d'une victoire ; 1 sur 4 légendaire.
 - **Maîtrise** : 100 niveaux par domaine, rang tous les 10 niveaux (Novice → Mythe), ~3 ans pour le niveau 100.

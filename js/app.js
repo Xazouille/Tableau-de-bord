@@ -26,6 +26,7 @@ import { timerState, tick } from './timer.js';
 import { showMonthRecap } from './game/opening.js';
 import { HABIT_STEPS, STAR_RULES, monthKey, prevMonth, reviewDone } from './game/growth.js';
 import { IDENT_XP } from './game/identity.js';
+import { isAdaptive, screenLimit, fmtMin } from './game/screen.js';
 
 const VIEWS = { today, stats, game, goals, media, vision, settings, growth, more: { render: settings.renderMore } };
 const SHEETS = { goal: goals.sheet, media: media.sheet, domain: settings.sheet, measure: today.sheet, card: game.sheet, odds: game.oddsSheet, shop: game.shopSheet, boss: game.bossSheet, look: game.lookSheet, timer: today.timerSheet, chal: game.chalSheet, plans: today.plansSheet, ui: settings.uiSheet };
@@ -154,6 +155,7 @@ function checkProgress() {
     announceBoss(g);
     announceGrowth(g);
     announceIdentity(g);
+    announceScreen();
 
     // Un seul grand écran à la fois : boss vaincu, puis bilan de la semaine
     if (overlayOpen() || ui.sheet) return;
@@ -264,6 +266,14 @@ function announceIdentity(g) {
     if (x.stage >= 4) setTimeout(() => confetti(120), 300);
   }
   if (JSON.stringify(now) !== JSON.stringify(seen)) setPref('ident', JSON.stringify(now));
+}
+
+// Écran : l'objectif vient de baisser après une semaine réussie
+function announceScreen() {
+  if (!isAdaptive(S.domains.list.find(d => d.id === 'ecran'))) return;
+  const lim = screenLimit(), was = Number(pref('screenLim') || 0);
+  if (was && lim < was) banner({ icon: '📵', title: `Nouvel objectif d’écran : moins de ${fmtMin(lim)} !`, sub: `Semaine réussie (5 jours sur 7 ou plus) : −${fmtMin(was - lim)}. Tu reprends la main sur ton temps.`, color: '#ff4fa3', cls: 'gold-ban', ms: 4500 });
+  if (lim !== was) setPref('screenLim', lim);
 }
 
 // Nouveau boss en vue

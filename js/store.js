@@ -1,6 +1,6 @@
 // Données de l'appli : valeurs par défaut, enregistrement sur l'appareil,
 // fusion entre deux appareils et synchro via un dépôt GitHub privé.
-import { todayKey, uid } from './util.js';
+import { todayKey, uid, key, today, weekStart } from './util.js';
 import { PRESETS, DEFAULT_XP, TIME_MEASURE } from './measures.js';
 
 // Mode démo : un compte de démonstration rangé à part (les vraies données ne sont pas touchées)
@@ -28,7 +28,7 @@ const DEFAULT_DOMAINS = [
   ['alim', 'Alimentation', '🥗', '#22c55e', 'Manger sainement'],
   ['medit', 'Méditation', '🧘', '#14c8c8', 'Quelques minutes au calme'],
   ['sommeil', 'Sommeil', '😴', '#6c7bff', 'Une vraie nuit de sommeil'],
-  ['ecran', 'Écran < 2h', '📵', '#ff4fa3', 'Moins de 2 h sur le téléphone'],
+  ['ecran', 'Écran maîtrisé', '📵', '#ff4fa3', 'Sous ton objectif d’écran du jour'],
   ['scroll', 'Pas de scroll', '🙅', '#00b3ff', 'Zéro réseau en scroll infini'],
   ['pas', 'Pas', '👟', '#84cc16', 'Marcher, bouger dans la journée'],
   ['journal', 'Journal', '📓', '#e879f9', 'Quelques lignes sur papier'],
@@ -89,6 +89,13 @@ function normalize(d) {
     if (d.m.opts && pr && pr.opts && d.m.kind === pr.kind && d.m.opts.map(x => x[0]).join() === pr.opts.map(x => x[0]).join()) d.m.opts = pr.opts;
     else if (d.m.kind === 'levels' && d.m.opts && d.m.opts.map(x => x[0]).join() === TIME_MEASURE.opts.map(x => x[0]).join()) d.m.opts = TIME_MEASURE.opts;
   }
+  // Écran : objectif qui part de 4 h et baisse chaque semaine réussie (une seule fois, à partir de cette semaine)
+  const scr = o.domains.list.find(x => x.id === 'ecran');
+  if (scr && !scr.adapt) {
+    scr.adapt = { from: key(weekStart(today())), start: 240 };
+    scr.m = { ...PRESETS.ecran };
+    if (scr.name === 'Écran < 2h') { scr.name = 'Écran maîtrisé'; scr.hint = 'Sous ton objectif d’écran du jour'; }
+  }
   const g = o.game;
   for (const k of ['pulls', 'trades', 'fusions', 'recycles', 'comp', 'rewards']) if (!Array.isArray(g[k])) g[k] = [];
   if (typeof g.since !== 'string') g.since = todayKey();
@@ -105,7 +112,7 @@ function load() {
     try { return normalize(JSON.parse(raw)); }
     catch (e) { try { localStorage.setItem(KEY + '-illisible-' + Date.now(), raw); } catch (_) {} }
   }
-  return defaults();
+  return normalize(defaults());
 }
 
 export let S = load();

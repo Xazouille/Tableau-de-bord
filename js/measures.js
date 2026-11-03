@@ -12,7 +12,8 @@ export const PRESETS = {
   alim: { kind: 'list', q: 'Qu’as-tu réussi aujourd’hui ?', items: ['Pas de soda', 'Pas de boisson sucrée', 'Manger un fruit', 'Un aliment pour prendre du poids'] },
   medit: { kind: 'levels', q: 'Combien de temps de méditation ?', opts: [['5 min', 1, 5], ['10 min', 1.5, 10], ['20 min', 2, 20], ['30 min et +', 3, 30]] },
   sommeil: { kind: 'levels', q: 'Combien d’heures as-tu dormi ?', opts: [['Moins de 6 h', 0.5], ['6 h – 7 h', 1], ['7 h – 8 h', 1.5], ['8 h et +', 2]] },
-  ecran: { kind: 'levels', q: 'Ton temps d’écran aujourd’hui ?', opts: [['1 h 30 – 2 h', 1], ['1 h – 1 h 30', 2], ['30 min – 1 h', 2.5], ['Moins de 30 min', 3]] },
+  // Paliers qui suivent l'objectif de la semaine (voir game/screen.js) : les libellés sont recalculés chaque jour
+  ecran: { kind: 'levels', q: 'Ton temps d’écran aujourd’hui ?', opts: [['Moins de 4 h', 1], ['Moins de 3 h', 2], ['Moins de 2 h', 2.5], ['Moins de 1 h', 3]] },
   scroll: { kind: 'none' },
   pas: { kind: 'levels', q: 'Combien de pas aujourd’hui ?', opts: [['5 000 pas', 1], ['8 000 pas', 1.5], ['10 000 pas', 2], ['15 000 pas et +', 3]] },
   journal: { kind: 'none' },
