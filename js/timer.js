@@ -23,7 +23,8 @@ export function optMinutes(d, i) {
   return (h ? Number(h[1]) * 60 : 0) + (m ? Number(m[1]) : 0);
 }
 // Cases qu'on peut chronométrer : celles dont le détail est un temps
-export const timedDomains = () => S.domains.list.filter(d => !d.archived && d.m && (d.m.kind === 'levels' || d.m.kind === 'skill') && d.m.opts.some((_, i) => optMinutes(d, i) > 0));
+// (Écran et Sommeil se mesurent en heures, mais ne se chronomètrent pas)
+export const timedDomains = () => S.domains.list.filter(d => !d.archived && !['ecran', 'sommeil'].includes(d.id) && d.m && (d.m.kind === 'levels' || d.m.kind === 'skill') && d.m.opts.some((_, i) => optMinutes(d, i) > 0));
 
 export const elapsedMs = t => (t.paused ? t.done : t.done + Date.now() - t.start);
 export const remainingMs = t => Math.max(0, t.mins * 60000 - elapsedMs(t));

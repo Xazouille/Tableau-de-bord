@@ -353,7 +353,7 @@ export function badgeDefs() {
     add('Domaines', `dom7-${d.id}`, d.emoji, `${d.name} · 7 jours`, `${d.name} 7 jours d’affilée`, 80, c => c.domBest(d.id) >= 7);
     add('Domaines', `dom30-${d.id}`, d.emoji, `${d.name} · 30 jours`, `${d.name} 30 jours d’affilée`, 300, c => c.domBest(d.id) >= 30);
   }
-  add('Domaines', 'ecran7', '📵', 'Détox', 'Moins de 30 min d’écran 7 jours d’affilée', 300, c => c.ecranLow7);
+  add('Domaines', 'ecran7', '📵', 'Détox', 'Le meilleur palier d’écran 7 jours d’affilée', 300, c => c.ecranLow7);
   add('Domaines', 'sommeil7', '😴', 'Gros dormeur', '8 h de sommeil ou plus 7 nuits d’affilée', 200, c => c.sleep7);
   add('Domaines', 'alim7', '🥗', 'Assiette parfaite', 'Les 4 objectifs d’alimentation 7 jours d’affilée', 250, c => c.alim7);
   add('Domaines', 'reg7', '🌙', 'Horloge interne', 'Couché à ton heure 7 soirs d’affilée', 200, c => c.reg >= 7);

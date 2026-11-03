@@ -3,6 +3,7 @@ import { S, save, isDone, setDone, setNote, setMood, valOf, setVal, activeDomain
 import { dayCount, globalStreak, globalBest, domainStreak, isPerfect, perfectNeed, isGoodDay, isJoker, visionSentences } from '../stats.js';
 import { G, PERFECT_BONUS, SLEEP_REG_XP, chalOpen } from '../game/rules.js';
 import { IDENT_AT } from '../game/identity.js';
+import { isAdaptive, screenOpts, screenWeek, screenLimit, fmtMin } from '../game/screen.js';
 import { levelCard, bossCard } from './game.js';
 import { nudges } from '../nudges.js';
 import { RANKS } from '../game/mastery.js';
@@ -162,7 +163,7 @@ export function render() {
   const tiles = doms.map(d => {
     const done = isDone(k, d.id), s = domainStreak(d.id).n, v = valOf(k, d.id), m = g.mastery[d.id];
     const reg = d.id === 'sommeil' && valOf(k, 'sleepreg') === 1 ? ' · 🌙' : '';
-    const lab = done ? caseLabel(d, v, S.skills) + reg : isTimed(d.id) ? '⏱️ Minuteur en cours…' : hasPlan(d) ? `🧭 ${d.plan.when.trim()}` : '';
+    const lab = done ? (isAdaptive(d) && typeof v === 'number' ? screenOpts(k)[v][0] : caseLabel(d, v, S.skills)) + reg : isTimed(d.id) ? '⏱️ Minuteur en cours…' : hasPlan(d) ? `🧭 ${d.plan.when.trim()}` : isAdaptive(d) ? `🎯 Moins de ${fmtMin(screenLimit(k))}` : '';
     const xpTxt = done ? `+${per[d.id] ?? d.xp} XP` : `${d.xp} XP${d.m && d.m.kind !== 'none' ? '+' : ''}`;
     const weak = g.boss.current && g.boss.current.weak === d.id;
     return `<button class="tile ${done ? 'on' : ''} ${ui.justDone === d.id ? 'pop' : ''} ${weak ? 'weak' : ''}" style="--c:${d.color}" data-act="toggle" data-id="${d.id}" aria-pressed="${done}">
@@ -213,8 +214,12 @@ export function sheet(s) {
   const sleepReg = d.id === 'sommeil' ? `<div class="sleep-reg"><p class="eyebrow">🌙 La veille au soir, couché à ton heure ?</p>
       <div class="chips"><button class="chip ${reg === 1 ? 'on' : ''}" data-act="sleepReg" data-v="1">Oui${bt ? `, vers ${bt} (± 30 min)` : ', à mon heure'} <small>+${SLEEP_REG_XP} XP</small></button><button class="chip ${reg === 0 ? 'on' : ''}" data-act="sleepReg" data-v="0">Non</button></div>
       <label class="f bt-in">Mon heure de coucher<input type="time" data-input="bedtime" value="${esc(bt)}"></label></div>` : '';
+  // Écran : objectif de la semaine et paliers recalculés
+  const sw = isAdaptive(d) && k === todayKey() ? screenWeek() : null;
+  const screenInfo = sw ? `<p class="plan-line">🎯 Objectif de la semaine : <b>moins de ${fmtMin(sw.limit)}</b> par jour · ${sw.done}/7 jours réussis${sw.atMin ? ' · objectif final atteint 🏆' : sw.done >= sw.need ? ` · ✓ semaine validée : la semaine prochaine, ${fmtMin(sw.next)}` : ` · encore ${sw.need - sw.done} pour passer à ${fmtMin(sw.next)}`}</p>` : '';
+  const opts = isAdaptive(d) ? screenOpts(k) : m.opts;
   if (m.kind === 'levels') {
-    body = `${sleepReg}<div class="opts">${m.opts.map(([l], i) => `<button class="opt ${v === i ? 'on' : ''}" style="--c:${d.color}" data-act="measureSet" data-v="${i}"><span>${esc(l)}</span><b>+${caseXP(d, i)} XP</b></button>`).join('')}</div>${timerBtn}`;
+    body = `${sleepReg}${screenInfo}<div class="opts">${opts.map(([l], i) => `<button class="opt ${v === i ? 'on' : ''}" style="--c:${d.color}" data-act="measureSet" data-v="${i}"><span>${esc(l)}</span><b>+${caseXP(d, i)} XP</b></button>`).join('')}</div>${timerBtn}`;
   } else if (m.kind === 'skill') {
     // Compétence : la choisir (ou en écrire une nouvelle), puis le temps passé
     const cur = s.skill || (v && v.s) || '';
